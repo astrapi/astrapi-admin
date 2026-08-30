@@ -1,7 +1,4 @@
-"""astrapi_admin.api.agent – Agent-seitige API (Pairing, Policy-Abruf, Report).
-
-Schritt 3: Pairing. Schritt 4/5 (Policy/Report) folgen.
-"""
+"""astrapi_admin.api.agent – Agent-seitige API (Pairing, Policy-Abruf, Report)."""
 import logging
 import secrets
 
