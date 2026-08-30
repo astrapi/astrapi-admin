@@ -7,3 +7,17 @@ display_name: Admin
 # APScheduler als Abhaengigkeit noetig.
 disabled_modules:
   - scheduler
+
+# Passkey-Login-Pflicht fuer die UI (siehe astrapi-core system/auth.py,
+# Hintergrund [[E-003]]) -- ohne das koennte jeder im LAN eine Policy
+# anlegen, die auf jedem gepaarten Host als root ausgefuehrt wird.
+# rp_id/rp_name sind nur Startwerte, spaeter ueber die Settings-Seite
+# aenderbar, sobald der echte Deployment-Hostname feststeht.
+# /api/agent bleibt ausgenommen -- das ist die eigene Bearer-Token-API der
+# Agenten, keine Browser-Session.
+auth:
+  enabled: true
+  rp_id: admin.simpsons.lan
+  rp_name: astrapi-admin
+  exempt_prefixes:
+    - /api/agent
