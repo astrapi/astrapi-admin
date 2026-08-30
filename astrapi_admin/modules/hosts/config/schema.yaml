@@ -1,0 +1,50 @@
+fields:
+  - name: hostname
+    type: text
+    label: Hostname
+    placeholder: "z.B. mirror.simpsons.lan"
+    max: 120
+    column: 1
+    row: 1
+
+  - name: label
+    type: text
+    label: Anzeigename
+    placeholder: "(Default: Hostname)"
+    max: 120
+    column: 2
+    row: 1
+
+  - name: os_type
+    type: select
+    label: Betriebssystem
+    options:
+      - value: archlinux
+        label: Arch Linux
+      - value: debian
+        label: Debian
+    column: 1
+    row: 2
+
+  - name: group_ids
+    type: multiselect
+    label: Gruppen
+    options_endpoint: /api/host_groups/for-select
+    column: 1
+    row: 3
+    colspan: 2
+
+  - name: policy_ids
+    type: multiselect
+    label: Policies (direkt zugewiesen)
+    options_endpoint: /api/policies/for-select
+    column: 1
+    row: 4
+    colspan: 2
+
+  - name: enabled
+    type: boolean
+    label: Aktiviert
+    default: true
+    column: 1
+    row: 5

@@ -1,0 +1,10 @@
+# navigation.yaml – Modulreihenfolge im Menü
+- key:   hosts
+  group: Admin
+  label: Hosts
+- key:   host_groups
+  group: Admin
+  label: Gruppen
+- key:   policies
+  group: Admin
+  label: Policies

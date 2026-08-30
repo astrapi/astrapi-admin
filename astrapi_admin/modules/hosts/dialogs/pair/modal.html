@@ -1,0 +1,52 @@
+{% extends "dialog_core.html" %}
+
+{% block dialog_width %}480{% endblock %}
+{% block dialog_title %}{{ 'Neu verbinden' if host_label else 'Host koppeln' }}{% endblock %}
+
+{% block dialog_body %}
+{% if host_label %}
+<p class="ds-modal-copy">
+  Im Agenten auf <strong>{{ host_label }}</strong> eingeben, um mit einem
+  neuen Token erneut zu verbinden — Gruppen und Policies bleiben dabei
+  unverändert. Der Code ist {{ ttl_minutes }} Minuten gültig und nur
+  einmal verwendbar.
+</p>
+{% else %}
+<p class="ds-modal-copy">
+  Auf dem Zielhost eingeben, um den astrapi-admin-Agenten mit diesem
+  Server zu verbinden. Der Code ist {{ ttl_minutes }} Minuten gültig und
+  nur einmal verwendbar.
+</p>
+{% endif %}
+
+<div style="margin:14px 0 6px;">
+  <label class="form-label">Server</label>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <code class="mono" style="flex:1; padding:8px 10px; background:var(--card-2,var(--card)); border-radius:var(--rad); overflow-x:auto;">{{ server_url }}</code>
+    <button type="button" class="btn-icon" title="Kopieren" onclick="copyToClipboard('{{ server_url }}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-copy"></use></svg>
+    </button>
+  </div>
+</div>
+
+<div style="margin:6px 0 6px;">
+  <label class="form-label">Pairing-Code</label>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <code class="mono" style="flex:1; padding:8px 10px; background:var(--card-2,var(--card)); border-radius:var(--rad); overflow-x:auto; word-break:break-all;">{{ token }}</code>
+    <button type="button" class="btn-icon" title="Kopieren" onclick="copyToClipboard('{{ token }}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-copy"></use></svg>
+    </button>
+  </div>
+</div>
+
+{% set cli_cmd = "sudo astrapi-admin-agent pair '" ~ server_url ~ "' '" ~ token ~ "'" %}
+<div style="margin:14px 0 6px;">
+  <label class="form-label">Befehl auf dem Zielhost</label>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <code class="mono" style="flex:1; padding:8px 10px; background:var(--card-2,var(--card)); border-radius:var(--rad); overflow-x:auto; word-break:break-all;">{{ cli_cmd }}</code>
+    <button type="button" class="btn-icon" title="Kopieren" onclick="copyToClipboard('{{ cli_cmd }}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-copy"></use></svg>
+    </button>
+  </div>
+</div>
+{% endblock %}

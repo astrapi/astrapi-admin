@@ -1,0 +1,182 @@
+{#
+  astrapi_admin/modules/policies/dialogs/edit/modal.html
+  Strukturiertes Policy-Formular: Pakete (present/absent je Distro),
+  Config-Dateien (Tabelle) und Services (Tabelle) -- kein rohes JSON-Feld.
+  Variablen: policy (dict|None), error (str|None)
+#}
+{% extends "dialog_form.html" %}
+{% import 'partials/components/ui_macros.html' as ui %}
+
+{% set is_new = policy is none or policy.get('id') is none %}
+
+{% block dialog_width %}720{% endblock %}
+{% block dialog_title %}{{ 'Policy bearbeiten' if not is_new else 'Neue Policy' }}{% endblock %}
+{% block form_id %}policy-form{% endblock %}
+{% block form_action %}{% if is_new %}/ui/policies/{% else %}/ui/policies/{{ policy.id }}/update{% endif %}{% endblock %}
+{% block form_style %}display:flex; flex-direction:column; gap:16px;{% endblock %}
+
+{% block dialog_body %}
+  {% if error %}
+  <div style="padding:8px 12px;border-radius:6px;
+              background:var(--error-dim,#3a0000);color:var(--error,#ff6b6b);font-size:13px;">{{ error }}</div>
+  {% endif %}
+
+  <div class="form-group">
+    <label class="form-label">Name <span class="required-mark">*</span></label>
+    <input class="form-input" type="text" name="name"
+           value="{{ policy.name if policy else '' }}"
+           placeholder="z.B. base-server" required autocomplete="off">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Beschreibung</label>
+    <input class="form-input" type="text" name="description"
+           value="{{ policy.description if policy else '' }}"
+           placeholder="z.B. Baseline für alle simpsons.lan-Server" autocomplete="off">
+  </div>
+
+  <!-- Pakete -->
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:8px;">Pakete</label>
+    <div class="policy-pkg-grid">
+      <div>
+        <div class="policy-subhead">Arch – muss vorhanden sein</div>
+        <textarea class="form-input policy-textarea" name="packages_arch_present"
+                  placeholder="ein Paket pro Zeile&#10;z.B. vim-config&#10;htop">{{ (policy.packages_arch.present | join('\n')) if policy and policy.packages_arch else '' }}</textarea>
+      </div>
+      <div>
+        <div class="policy-subhead">Arch – darf nicht vorhanden sein</div>
+        <textarea class="form-input policy-textarea" name="packages_arch_absent"
+                  placeholder="ein Paket pro Zeile">{{ (policy.packages_arch.absent | join('\n')) if policy and policy.packages_arch else '' }}</textarea>
+      </div>
+      <div>
+        <div class="policy-subhead">Debian – muss vorhanden sein</div>
+        <textarea class="form-input policy-textarea" name="packages_debian_present"
+                  placeholder="ein Paket pro Zeile">{{ (policy.packages_debian.present | join('\n')) if policy and policy.packages_debian else '' }}</textarea>
+      </div>
+      <div>
+        <div class="policy-subhead">Debian – darf nicht vorhanden sein</div>
+        <textarea class="form-input policy-textarea" name="packages_debian_absent"
+                  placeholder="ein Paket pro Zeile">{{ (policy.packages_debian.absent | join('\n')) if policy and policy.packages_debian else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config-Dateien -->
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:8px;">Config-Dateien</label>
+    <div id="policy-cf-rows" class="policy-rows"></div>
+    <button type="button" class="btn btn-ghost" style="font-size:12px;" onclick="policyAddConfigFile()">+ Config-Datei</button>
+  </div>
+
+  <!-- Services -->
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:8px;">Services</label>
+    <div id="policy-svc-rows" class="policy-rows"></div>
+    <button type="button" class="btn btn-ghost" style="font-size:12px;" onclick="policyAddService()">+ Service</button>
+  </div>
+
+  <style>
+    .policy-pkg-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .policy-subhead { font-size:11px; color:var(--text-3); margin-bottom:4px; }
+    .policy-textarea { width:100%; min-height:70px; font-family:monospace; font-size:12px; resize:vertical; }
+    .policy-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+    .policy-row {
+      display:flex; gap:6px; align-items:flex-start; padding:8px;
+      border:1px solid var(--border-s); border-radius:var(--rad-lg); background:var(--card);
+    }
+    .policy-row input, .policy-row select, .policy-row textarea { font-size:12px; }
+    .policy-row .policy-row-remove {
+      background:none; border:none; color:var(--text-3); cursor:pointer;
+      font-size:16px; line-height:1; padding:4px;
+    }
+    .policy-cf-path { flex:2; min-width:0; }
+    .policy-cf-action { flex:1; min-width:100px; }
+    .policy-cf-content { flex:2; min-width:0; min-height:32px; font-family:monospace; }
+    .policy-cf-mode, .policy-cf-owner, .policy-cf-group { width:70px; flex-shrink:0; }
+    .policy-svc-name { flex:2; min-width:0; }
+    .policy-svc-state { flex:1; min-width:140px; }
+  </style>
+{% endblock %}
+
+{% block dialog_footer %}
+{{ ui.modal_footer(
+  enabled=(policy.enabled if policy else True),
+  enabled_id='policy-enabled',
+  save_label=('Speichern' if not is_new else 'Erstellen'),
+) }}
+{% endblock %}
+
+{% block dialog_scripts %}
+<script>
+(function () {
+  var cfRows  = document.getElementById('policy-cf-rows');
+  var svcRows = document.getElementById('policy-svc-rows');
+
+  var CF_ACTIONS  = [['enforce', 'Durchsetzen'], ['absent', 'Entfernen']];
+  var SVC_STATES  = [
+    ['enabled_started',  'Aktiviert + Gestartet'],
+    ['enabled',          'Nur Aktiviert'],
+    ['started',          'Nur Gestartet'],
+    ['disabled_stopped', 'Deaktiviert + Gestoppt'],
+    ['disabled',         'Nur Deaktiviert'],
+    ['stopped',          'Nur Gestoppt'],
+  ];
+
+  function opt(value, label, selected) {
+    return '<option value="' + value + '"' + (selected ? ' selected' : '') + '>' + label + '</option>';
+  }
+
+  window.policyAddConfigFile = function (cf) {
+    cf = cf || {};
+    var row = document.createElement('div');
+    row.className = 'policy-row';
+    var action = cf.action || 'enforce';
+    row.innerHTML =
+      '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/pfad/datei.conf" value="' +
+        (cf.path || '').replace(/"/g, '&quot;') + '">' +
+      '<select class="form-input policy-cf-action" name="cf_action" onchange="policyToggleCfContent(this)">' +
+        CF_ACTIONS.map(function (a) { return opt(a[0], a[1], a[0] === action); }).join('') +
+      '</select>' +
+      '<textarea class="form-input policy-cf-content" name="cf_content" placeholder="Dateiinhalt" ' +
+        (action === 'absent' ? 'style="display:none;"' : '') + '>' + (cf.content || '') + '</textarea>' +
+      '<input class="form-input policy-cf-mode" name="cf_mode" type="text" placeholder="0644" value="' + (cf.mode || '0644') + '">' +
+      '<input class="form-input policy-cf-owner" name="cf_owner" type="text" placeholder="root" value="' + (cf.owner || 'root') + '">' +
+      '<input class="form-input policy-cf-group" name="cf_group" type="text" placeholder="root" value="' + (cf.group || 'root') + '">' +
+      '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-row\').remove()">×</button>';
+    cfRows.appendChild(row);
+  };
+
+  window.policyToggleCfContent = function (select) {
+    var row = select.closest('.policy-row');
+    var content = row.querySelector('.policy-cf-content');
+    content.style.display = select.value === 'absent' ? 'none' : '';
+  };
+
+  window.policyAddService = function (svc) {
+    svc = svc || {};
+    var row = document.createElement('div');
+    row.className = 'policy-row';
+    var state = svc.state || 'enabled_started';
+    row.innerHTML =
+      '<input class="form-input policy-svc-name" name="svc_name" type="text" placeholder="z.B. sshd" value="' +
+        (svc.name || '').replace(/"/g, '&quot;') + '">' +
+      '<select class="form-input policy-svc-state" name="svc_state">' +
+        SVC_STATES.map(function (s) { return opt(s[0], s[1], s[0] === state); }).join('') +
+      '</select>' +
+      '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-row\').remove()">×</button>';
+    svcRows.appendChild(row);
+  };
+
+  {% if policy and policy.config_files %}
+  var initialCf = {{ policy.config_files | tojson }};
+  initialCf.forEach(function (cf) { policyAddConfigFile(cf); });
+  {% endif %}
+
+  {% if policy and policy.services %}
+  var initialSvc = {{ policy.services | tojson }};
+  initialSvc.forEach(function (svc) { policyAddService(svc); });
+  {% endif %}
+})();
+</script>
+{% endblock %}

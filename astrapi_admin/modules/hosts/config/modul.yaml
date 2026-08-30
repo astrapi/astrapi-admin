@@ -1,0 +1,7 @@
+label:       Hosts
+nav_group:   Admin
+nav_default: true
+
+card_actions:
+  - type: reconnect
+    url: /ui/hosts/{item}/reconnect
