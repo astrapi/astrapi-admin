@@ -8,6 +8,7 @@ from astrapi_core.ui.store import SqliteTableStore
 
 from astrapi_admin.modules.hosts import mirror_client
 from astrapi_admin.modules.hosts import mirror_repos as mirror_repos_mod
+from astrapi_admin.modules.policies.engine import group_policy_ids
 
 KEY = "hosts"
 _DIR = Path(__file__).parent.parent
@@ -15,16 +16,26 @@ store = SqliteTableStore(KEY)
 
 
 def _resolve_fields(fields: list, item: dict | None = None) -> list:
+    """Aufloesen der options_endpoint-Felder wie ueberall -- zusaetzlich
+    werden fuer policy_ids/mirror_repos ueber eine Gruppe geerbte Werte als
+    'locked' markiert (field_renderer.html in astrapi-core: angehakt, aber
+    nicht abwaehlbar -- sonst wirkt es, als koennte man sie am Host
+    entfernen, sie kaemen aber ueber die Gruppe ohnehin wieder)."""
     resolved = resolve_options_endpoint(fields)
-    if item:
-        locked = mirror_repos_mod.group_mirror_repos(item)
-        if locked:
-            for f in resolved:
-                if f.get("name") != "mirror_repos":
-                    continue
-                for opt in f.get("options") or []:
-                    if opt["value"] in locked:
-                        opt["locked"] = True
+    if not item:
+        return resolved
+
+    locked_by_field = {
+        "mirror_repos": mirror_repos_mod.group_mirror_repos(item),
+        "policy_ids": group_policy_ids(item),
+    }
+    for f in resolved:
+        locked = locked_by_field.get(f.get("name"))
+        if not locked:
+            continue
+        for opt in f.get("options") or []:
+            if opt["value"] in locked:
+                opt["locked"] = True
     return resolved
 
 

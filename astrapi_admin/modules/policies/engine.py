@@ -47,6 +47,21 @@ def policies_for_select() -> list[dict]:
 # ── Aufloesung ────────────────────────────────────────────────────────────
 
 
+def group_policy_ids(host: dict) -> set[str]:
+    """Vereinigung der policy_ids aller Gruppen, denen der Host angehört --
+    fuer resolve_policy_for_host() UND fuer die 'geerbt, nicht abwaehlbar'-
+    Markierung im Host-Formular (hosts/ui/crud.py), analog zu
+    modules/hosts/mirror_repos.py::group_mirror_repos()."""
+    from astrapi_admin.modules.host_groups.ui.crud import store as groups_store
+
+    result: set[str] = set()
+    for gid in host.get("group_ids") or []:
+        g = groups_store.get(gid)
+        if g:
+            result.update(g.get("policy_ids") or [])
+    return result
+
+
 def _resolve_by_tier(entries: list[tuple]) -> tuple[object, bool]:
     """entries: Liste von (tier, policy_id, signatur, ...). Gewinnt die
     hoechste Vorrangstufe eindeutig (alle Eintraege dort tragen dieselbe
@@ -65,16 +80,9 @@ def resolve_policy_for_host(host: dict) -> dict:
     """Merged alle fuer den Host geltenden (enabled) Policies -- direkt
     zugewiesene UND ueber Gruppen geerbte -- zu einer OS-aufgeloesten,
     konfliktannotierten Zielvorgabe fuer den Agenten."""
-    from astrapi_admin.modules.host_groups.ui.crud import store as groups_store
-
     direct_ids = list(dict.fromkeys(host.get("policy_ids") or []))
-    group_policy_ids = []
-    for gid in host.get("group_ids") or []:
-        g = groups_store.get(gid)
-        if g:
-            group_policy_ids.extend(g.get("policy_ids") or [])
     direct_set = set(direct_ids)
-    group_only_ids = [pid for pid in dict.fromkeys(group_policy_ids) if pid not in direct_set]
+    group_only_ids = sorted(group_policy_ids(host) - direct_set)
 
     store = _store()
 

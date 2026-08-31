@@ -86,6 +86,60 @@ def test_resolve_policy_for_host_gibt_force_flag_weiter():
     assert result["config_files"][0]["force"] is True
 
 
+def _create_group(name: str, policy_ids: list[str]) -> str:
+    return groups_store.create(
+        None, {"name": name, "description": "", "policy_ids": policy_ids, "mirror_repos": [], "enabled": True}
+    )
+
+
+def test_group_policy_ids_vereinigt_mehrere_gruppen():
+    policies_engine.create_policy("p1", {"name": "a", "enabled": True})
+    policies_engine.create_policy("p2", {"name": "b", "enabled": True})
+    g1 = _create_group("g1", ["p1"])
+    g2 = _create_group("g2", ["p1", "p2"])
+
+    result = policies_engine.group_policy_ids({"group_ids": [g1, g2]})
+
+    assert result == {"p1", "p2"}
+
+
+def test_group_policy_ids_geloeschte_gruppe_wird_uebersprungen():
+    assert policies_engine.group_policy_ids({"group_ids": ["nie-angelegt"]}) == set()
+
+
+def test_resolve_policy_for_host_gruppen_geerbte_policy_wird_angewendet():
+    """Regressionsschutz fuer den group_policy_ids()-Refactor: eine Policy,
+    die nur ueber eine Gruppe zugewiesen ist (nicht direkt am Host), muss
+    weiterhin einfliessen."""
+    policies_engine.create_policy(
+        "p1",
+        {"name": "vim", "enabled": True, "packages_arch": ["vim"], "services": []},
+    )
+    gid = _create_group("basis", ["p1"])
+    host = _host(group_ids=[gid], policy_ids=[])
+
+    result = policies_engine.resolve_policy_for_host(host)
+
+    assert result["status"] == "ok"
+    assert result["packages_required"] == ["vim"]
+
+
+def test_resolve_policy_for_host_direkte_zuweisung_dupliziert_nicht_mit_gruppe():
+    """Dieselbe Policy sowohl direkt als auch ueber eine Gruppe zugewiesen
+    -- darf nicht zu einem (kuenstlichen) Konflikt mit sich selbst fuehren."""
+    policies_engine.create_policy(
+        "p1",
+        {"name": "vim", "enabled": True, "packages_arch": ["vim"]},
+    )
+    gid = _create_group("basis", ["p1"])
+    host = _host(group_ids=[gid], policy_ids=["p1"])
+
+    result = policies_engine.resolve_policy_for_host(host)
+
+    assert result["status"] == "ok"
+    assert result["packages_required"] == ["vim"]
+
+
 def test_resolve_policy_for_host_force_unterschied_ist_ein_konflikt():
     """Zwei Policies auf derselben Vorrangstufe, die sich nur im
     force-Flag unterscheiden, duerfen nicht still aufgeloest werden --
