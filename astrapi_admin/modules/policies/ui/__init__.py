@@ -12,7 +12,6 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 
 from astrapi_admin.modules.policies import engine
-from astrapi_admin.modules.templates import engine as templates_engine
 
 KEY = "policies"
 _C_ID = f"mod-{KEY}"
@@ -37,15 +36,7 @@ def _lines(text: str) -> list[str]:
 
 
 def _summary(p: dict) -> str:
-    if p.get("template_id"):
-        tpl = templates_engine.get_template(p["template_id"])
-        return f"Vorlage: {tpl.get('name') or p['template_id']}" if tpl else "Vorlage: gelöscht"
-    n_pkg = (
-        len((p.get("packages_arch") or {}).get("present") or [])
-        + len((p.get("packages_arch") or {}).get("absent") or [])
-        + len((p.get("packages_debian") or {}).get("present") or [])
-        + len((p.get("packages_debian") or {}).get("absent") or [])
-    )
+    n_pkg = len(p.get("packages_arch") or []) + len(p.get("packages_debian") or [])
     parts = []
     if n_pkg:
         parts.append(f"{n_pkg} Pakete")
@@ -86,11 +77,7 @@ def policies_content(request: Request):
 
 @router.get(f"/ui/{KEY}/new", response_class=HTMLResponse)
 def policies_new(request: Request):
-    return render(
-        request,
-        f"{KEY}/dialogs/edit/modal.html",
-        dict(policy=None, error=None, templates=templates_engine.list_templates()),
-    )
+    return render(request, f"{KEY}/dialogs/edit/modal.html", dict(policy=None, error=None))
 
 
 @router.get(f"/ui/{KEY}/{{policy_id}}/edit", response_class=HTMLResponse)
@@ -101,11 +88,7 @@ def policies_edit(policy_id: str, request: Request):
     return render(
         request,
         f"{KEY}/dialogs/edit/modal.html",
-        dict(
-            policy={**policy, "id": policy_id},
-            error=None,
-            templates=templates_engine.list_templates(),
-        ),
+        dict(policy={**policy, "id": policy_id}, error=None),
     )
 
 
@@ -157,7 +140,6 @@ async def _parse_form(request: Request) -> dict:
     owners = form.getlist("cf_owner")
     groups = form.getlist("cf_group")
     forces = form.getlist("cf_force")
-    before_packages = form.getlist("cf_before_packages")
     config_files = []
     for i, path in enumerate(paths):
         path = path.strip()
@@ -172,7 +154,6 @@ async def _parse_form(request: Request) -> dict:
                 "owner": (owners[i] if i < len(owners) else "").strip() or "root",
                 "group": (groups[i] if i < len(groups) else "").strip() or "root",
                 "force": (forces[i] if i < len(forces) else "0") == "1",
-                "before_packages": (before_packages[i] if i < len(before_packages) else "0") == "1",
             }
         )
 
@@ -187,24 +168,14 @@ async def _parse_form(request: Request) -> dict:
             {"name": name, "state": svc_states[i] if i < len(svc_states) else "enabled_started"}
         )
 
-    template_params = {k[3:]: v for k, v in form.multi_items() if k.startswith("tp_")}
-
     return {
         "name": form.get("name", "").strip(),
         "description": form.get("description", "").strip(),
         "enabled": "1" in form.getlist("enabled"),
-        "packages_arch": {
-            "present": _lines(form.get("packages_arch_present", "")),
-            "absent": _lines(form.get("packages_arch_absent", "")),
-        },
-        "packages_debian": {
-            "present": _lines(form.get("packages_debian_present", "")),
-            "absent": _lines(form.get("packages_debian_absent", "")),
-        },
+        "packages_arch": _lines(form.get("packages_arch", "")),
+        "packages_debian": _lines(form.get("packages_debian", "")),
         "config_files": config_files,
         "services": services,
-        "template_id": form.get("template_id", "").strip() or None,
-        "template_params": template_params,
     }
 
 
@@ -218,11 +189,7 @@ async def policies_create(request: Request):
         return render(
             request,
             f"{KEY}/dialogs/edit/modal.html",
-            dict(
-                policy={**data, "id": None},
-                error="Name ist ein Pflichtfeld.",
-                templates=templates_engine.list_templates(),
-            ),
+            dict(policy={**data, "id": None}, error="Name ist ein Pflichtfeld."),
             status_code=422,
         )
     policy_id = uuid.uuid4().hex[:12]
@@ -237,11 +204,7 @@ async def policies_update(policy_id: str, request: Request):
         return render(
             request,
             f"{KEY}/dialogs/edit/modal.html",
-            dict(
-                policy={**data, "id": policy_id},
-                error="Name ist ein Pflichtfeld.",
-                templates=templates_engine.list_templates(),
-            ),
+            dict(policy={**data, "id": policy_id}, error="Name ist ein Pflichtfeld."),
             status_code=422,
         )
     engine.update_policy(policy_id, data)

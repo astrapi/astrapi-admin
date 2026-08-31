@@ -77,23 +77,11 @@ def resolve_policy_for_host(host: dict) -> dict:
     group_only_ids = [pid for pid in dict.fromkeys(group_policy_ids) if pid not in direct_set]
 
     store = _store()
-    template_errors: list = []
 
     def _load(pid: str) -> dict | None:
         p = store.get(pid)
         if not p or not p.get("enabled", True):
             return None
-        if p.get("template_id"):
-            from astrapi_admin.modules.templates.engine import TemplateRenderError, render_template
-
-            try:
-                expanded = render_template(p["template_id"], p.get("template_params") or {})
-            except TemplateRenderError as e:
-                template_errors.append(
-                    {"policy_id": pid, "template_id": p["template_id"], "detail": str(e)}
-                )
-                return None
-            return {**p, **expanded}
         return p
 
     direct_policies = [(pid, _load(pid)) for pid in direct_ids]
@@ -104,16 +92,17 @@ def resolve_policy_for_host(host: dict) -> dict:
     os_type = host.get("os_type") or ""
     pkg_key = {"archlinux": "packages_arch", "debian": "packages_debian"}.get(os_type)
 
-    pkg_entries: dict[str, list] = {}
+    packages_required: set[str] = set()
     cfg_entries: dict[str, list] = {}
     svc_entries: dict[str, list] = {}
 
     def _collect(tier: int, policies: list[tuple[str, dict]]) -> None:
         for pid, pol in policies:
             if pkg_key:
-                for direction in ("present", "absent"):
-                    for name in (pol.get(pkg_key, {}).get(direction) or []):
-                        pkg_entries.setdefault(name, []).append((tier, pid, direction))
+                # "required" ist rein additiv -- zwei Policies koennen sich
+                # hier nie widersprechen (anders als vormals present/absent),
+                # deshalb ohne Tier-/Konfliktlogik direkt vereinigt.
+                packages_required.update(pol.get(pkg_key) or [])
             for cf in pol.get("config_files") or []:
                 path = (cf.get("path") or "").strip()
                 if not path:
@@ -125,7 +114,6 @@ def resolve_policy_for_host(host: dict) -> dict:
                     cf.get("owner"),
                     cf.get("group"),
                     cf.get("force"),
-                    cf.get("before_packages"),
                 )
                 cfg_entries.setdefault(path, []).append((tier, pid, sig, cf))
             for svc in pol.get("services") or []:
@@ -138,14 +126,6 @@ def resolve_policy_for_host(host: dict) -> dict:
     _collect(_TIER_GROUP, group_policies)
 
     conflicts = []
-    packages_present, packages_absent = [], []
-    for name, entries in pkg_entries.items():
-        winner, conflict = _resolve_by_tier(entries)
-        if conflict:
-            conflicts.append({"type": "package", "name": name})
-            continue
-        (packages_present if winner[2] == "present" else packages_absent).append(name)
-
     config_files = []
     for path, entries in cfg_entries.items():
         winner, conflict = _resolve_by_tier(entries)
@@ -163,11 +143,9 @@ def resolve_policy_for_host(host: dict) -> dict:
         services.append({"name": name, "state": winner[2]})
 
     return {
-        "packages_present": sorted(packages_present),
-        "packages_absent": sorted(packages_absent),
+        "packages_required": sorted(packages_required),
         "config_files": config_files,
         "services": services,
         "conflicts": conflicts,
-        "template_errors": template_errors,
-        "status": "conflict" if (conflicts or template_errors) else "ok",
+        "status": "conflict" if conflicts else "ok",
     }
