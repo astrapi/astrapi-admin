@@ -125,6 +125,7 @@ def resolve_policy_for_host(host: dict) -> dict:
                     cf.get("owner"),
                     cf.get("group"),
                     cf.get("force"),
+                    cf.get("before_packages"),
                 )
                 cfg_entries.setdefault(path, []).append((tier, pid, sig, cf))
             for svc in pol.get("services") or []:

@@ -173,6 +173,29 @@ def test_resolve_policy_for_host_gibt_force_flag_weiter():
     assert result["config_files"][0]["force"] is True
 
 
+def test_resolve_policy_for_host_gibt_before_packages_flag_weiter():
+    policies_engine.create_policy(
+        "p1",
+        {
+            "name": "quelle-vor-paket",
+            "enabled": True,
+            "config_files": [
+                {
+                    "path": "/etc/apt/sources.list.d/x.sources",
+                    "action": "enforce",
+                    "content": "x",
+                    "before_packages": True,
+                }
+            ],
+        },
+    )
+    host = _host(policy_ids=["p1"])
+
+    result = policies_engine.resolve_policy_for_host(host)
+
+    assert result["config_files"][0]["before_packages"] is True
+
+
 def test_resolve_policy_for_host_force_unterschied_ist_ein_konflikt():
     """Zwei Policies auf derselben Vorrangstufe, die sich nur im
     force-Flag unterscheiden, duerfen nicht still aufgeloest werden --

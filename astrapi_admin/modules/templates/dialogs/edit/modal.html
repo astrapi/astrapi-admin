@@ -105,6 +105,7 @@
     .policy-cf-content { flex:2; min-width:0; min-height:32px; font-family:monospace; }
     .policy-cf-mode, .policy-cf-owner, .policy-cf-group { width:70px; flex-shrink:0; }
     .policy-cf-force { width:100px; flex-shrink:0; }
+    .policy-cf-order { width:120px; flex-shrink:0; }
     .policy-svc-name { flex:2; min-width:0; }
     .policy-svc-state { flex:1; min-width:140px; }
     .tpl-param-key { flex:1; min-width:0; font-family:monospace; }
@@ -131,6 +132,7 @@
 
   var CF_ACTIONS = [['enforce', 'Durchsetzen'], ['absent', 'Entfernen']];
   var CF_FORCE = [['0', 'Geschützt'], ['1', 'Erzwingen']];
+  var CF_ORDER = [['0', 'Nach Paketen'], ['1', 'Vor Paketen']];
   var SVC_STATES = [
     ['enabled_started',  'Aktiviert + Gestartet'],
     ['enabled',          'Nur Aktiviert'],
@@ -152,6 +154,7 @@
     row.className = 'policy-row';
     var action = cf.action || 'enforce';
     var force = cf.force ? '1' : '0';
+    var order = cf.before_packages ? '1' : '0';
     row.innerHTML =
       '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/caddy/Caddyfile" value="' + esc(cf.path) + '">' +
       '<select class="form-input policy-cf-action" name="cf_action" onchange="tplToggleCfContent(this)">' +
@@ -164,6 +167,9 @@
       '<input class="form-input policy-cf-group" name="cf_group" type="text" placeholder="root" value="' + (cf.group || 'root') + '">' +
       '<select class="form-input policy-cf-force" name="cf_force" title="Erzwingen überschreibt auch Dateien, die einem Paket gehören (z.B. eine vom OS-Paket mitgelieferte Standard-Config)">' +
         CF_FORCE.map(function (f) { return opt(f[0], f[1], f[0] === force); }).join('') +
+      '</select>' +
+      '<select class="form-input policy-cf-order" name="cf_before_packages" title="Vor Paketen: für Paketquellen (z.B. Apt-/Pacman-Repo), die existieren müssen, bevor Pakete installiert werden. Nutzt kein Owner außer root.">' +
+        CF_ORDER.map(function (o) { return opt(o[0], o[1], o[0] === order); }).join('') +
       '</select>' +
       '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-row\').remove()">×</button>';
     cfRows.appendChild(row);

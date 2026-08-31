@@ -142,6 +142,7 @@ async def _parse_form(request: Request) -> dict:
     owners = form.getlist("cf_owner")
     groups = form.getlist("cf_group")
     forces = form.getlist("cf_force")
+    before_packages = form.getlist("cf_before_packages")
     config_files = []
     for i, path in enumerate(paths):
         path = path.strip()
@@ -156,6 +157,7 @@ async def _parse_form(request: Request) -> dict:
                 "owner": (owners[i] if i < len(owners) else "").strip() or "root",
                 "group": (groups[i] if i < len(groups) else "").strip() or "root",
                 "force": (forces[i] if i < len(forces) else "0") == "1",
+                "before_packages": (before_packages[i] if i < len(before_packages) else "0") == "1",
             }
         )
 
