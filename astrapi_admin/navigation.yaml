@@ -8,3 +8,6 @@
 - key:   policies
   group: Admin
   label: Policies
+- key:   templates
+  group: Admin
+  label: Vorlagen

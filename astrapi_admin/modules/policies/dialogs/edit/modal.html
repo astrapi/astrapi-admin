@@ -35,6 +35,22 @@
            placeholder="z.B. Baseline für alle simpsons.lan-Server" autocomplete="off">
   </div>
 
+  <div class="form-group">
+    <label class="form-label">Vorlage</label>
+    <select class="form-input" name="template_id" id="policy-template-select" onchange="policyOnTemplateChange()">
+      <option value="">— kein Template, Felder unten manuell ausfüllen —</option>
+      {% for tid, t in (templates or {}).items() %}
+      <option value="{{ tid }}" {{ 'selected' if policy and policy.template_id == tid else '' }}>{{ t.name or tid }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div id="policy-template-params" class="form-group" style="display:none;">
+    <label class="form-label" style="margin-bottom:8px;">Vorlagen-Parameter</label>
+    <div id="policy-tp-rows" class="policy-rows"></div>
+  </div>
+
+  <div id="policy-manual-fields">
   <!-- Pakete -->
   <div class="form-group">
     <label class="form-label" style="margin-bottom:8px;">Pakete</label>
@@ -74,6 +90,7 @@
     <label class="form-label" style="margin-bottom:8px;">Services</label>
     <div id="policy-svc-rows" class="policy-rows"></div>
     <button type="button" class="btn btn-ghost" style="font-size:12px;" onclick="policyAddService()">+ Service</button>
+  </div>
   </div>
 
   <style>
@@ -176,6 +193,45 @@
   {% if policy and policy.services %}
   var initialSvc = {{ policy.services | tojson }};
   initialSvc.forEach(function (svc) { policyAddService(svc); });
+  {% endif %}
+
+  // ── Vorlagen-Auswahl: blendet die manuellen Felder gegen ein
+  // Parameter-Formular um, komplett clientseitig (keine Server-Rundreise,
+  // gleiches Prinzip wie initialCf/initialSvc oben -- alle Vorlagen-Daten
+  // stehen schon als JSON auf der Seite).
+  var TEMPLATES = {{ (templates or {}) | tojson }};
+  var INITIAL_TP = {{ (policy.template_params if policy else {}) | tojson }};
+  var tpRows = document.getElementById('policy-tp-rows');
+
+  window.policyOnTemplateChange = function () {
+    var sel = document.getElementById('policy-template-select');
+    var tid = sel.value;
+    var manual = document.getElementById('policy-manual-fields');
+    var tpWrap = document.getElementById('policy-template-params');
+    tpRows.innerHTML = '';
+    if (!tid || !TEMPLATES[tid]) {
+      manual.style.display = '';
+      tpWrap.style.display = 'none';
+      return;
+    }
+    manual.style.display = 'none';
+    tpWrap.style.display = '';
+    (TEMPLATES[tid].params || []).forEach(function (p) {
+      var val = (INITIAL_TP[p.key] !== undefined) ? INITIAL_TP[p.key] : (p.default || '');
+      var row = document.createElement('div');
+      row.className = 'policy-row';
+      row.innerHTML =
+        '<label class="form-label" style="flex:1;min-width:0;align-self:center;margin:0;">' +
+          (p.label || p.key) + (p.required ? ' <span class="required-mark">*</span>' : '') +
+        '</label>' +
+        '<input class="form-input" style="flex:2;min-width:0;" name="tp_' + p.key + '" type="text" ' +
+          'value="' + String(val).replace(/"/g, '&quot;') + '">';
+      tpRows.appendChild(row);
+    });
+  };
+
+  {% if policy and policy.template_id %}
+  policyOnTemplateChange();
   {% endif %}
 })();
 </script>

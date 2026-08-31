@@ -1,8 +1,8 @@
-# astrapi_admin/modules/policies/ui/__init__.py
-"""FastAPI-Router fuer den Policy-Editor -- eigener, strukturierter Dialog
-statt generischem crud_blueprint (analog zum Haeufigkeit-Picker im
-scheduler-Modul), weil Pakete/Config-Dateien/Services jeweils eigene
-Tabellen-/Listen-Widgets brauchen, kein simples Formularfeld-Set."""
+# astrapi_admin/modules/templates/ui/__init__.py
+"""FastAPI-Router fuer den Vorlagen-Editor -- eigener, strukturierter
+Dialog statt generischem crud_blueprint, analog zu policies/ui/__init__.py
+(Pakete/Config-Dateien/Services/Parameter brauchen jeweils eigene
+Tabellen-/Listen-Widgets, kein simples Formularfeld-Set)."""
 import uuid
 
 from astrapi_core.ui.controls import Col, ContentTable
@@ -11,17 +11,16 @@ from astrapi_core.ui.render import render, render_string
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse
 
-from astrapi_admin.modules.policies import engine
-from astrapi_admin.modules.templates import engine as templates_engine
+from astrapi_admin.modules.templates import engine
 
-KEY = "policies"
+KEY = "templates"
 _C_ID = f"mod-{KEY}"
 _L_ID = f"{KEY}-loading"
 
 router = APIRouter()
 api_router = APIRouter()
 
-policies_table = ContentTable(
+templates_table = ContentTable(
     has_create=False,
     has_run_buttons=False,
     has_toggle=True,
@@ -36,31 +35,25 @@ def _lines(text: str) -> list[str]:
     return [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
 
 
-def _summary(p: dict) -> str:
-    if p.get("template_id"):
-        tpl = templates_engine.get_template(p["template_id"])
-        return f"Vorlage: {tpl.get('name') or p['template_id']}" if tpl else "Vorlage: gelöscht"
-    n_pkg = (
-        len((p.get("packages_arch") or {}).get("present") or [])
-        + len((p.get("packages_arch") or {}).get("absent") or [])
-        + len((p.get("packages_debian") or {}).get("present") or [])
-        + len((p.get("packages_debian") or {}).get("absent") or [])
+def _summary(t: dict) -> str:
+    n_pkg = len((t.get("packages_arch") or {}).get("present") or []) + len(
+        (t.get("packages_debian") or {}).get("present") or []
     )
     parts = []
     if n_pkg:
         parts.append(f"{n_pkg} Pakete")
-    if p.get("config_files"):
-        parts.append(f"{len(p['config_files'])} Configs")
-    if p.get("services"):
-        parts.append(f"{len(p['services'])} Services")
+    if t.get("config_files"):
+        parts.append(f"{len(t['config_files'])} Configs")
+    if t.get("params"):
+        parts.append(f"{len(t['params'])} Parameter")
     return ", ".join(parts) or "leer"
 
 
 def _list_ctx() -> dict:
-    policies = engine.list_policies()
+    tpls = engine.list_templates()
     return {
         "module": KEY,
-        "cfg": {pid: {**p, "summary": _summary(p)} for pid, p in policies.items()},
+        "cfg": {tid: {**t, "summary": _summary(t)} for tid, t in tpls.items()},
         "container_id": _C_ID,
         "loading_id": _L_ID,
     }
@@ -77,7 +70,7 @@ register_content_renderer(KEY, _render_content)
 
 
 @router.get(f"/ui/{KEY}/content", response_class=HTMLResponse)
-def policies_content(request: Request):
+def templates_content(request: Request):
     return render(request, "content.html", _list_ctx())
 
 
@@ -85,59 +78,51 @@ def policies_content(request: Request):
 
 
 @router.get(f"/ui/{KEY}/new", response_class=HTMLResponse)
-def policies_new(request: Request):
-    return render(
-        request,
-        f"{KEY}/dialogs/edit/modal.html",
-        dict(policy=None, error=None, templates=templates_engine.list_templates()),
-    )
+def templates_new(request: Request):
+    return render(request, f"{KEY}/dialogs/edit/modal.html", dict(tpl=None, error=None))
 
 
-@router.get(f"/ui/{KEY}/{{policy_id}}/edit", response_class=HTMLResponse)
-def policies_edit(policy_id: str, request: Request):
-    policy = engine.get_policy(policy_id)
-    if policy is None:
+@router.get(f"/ui/{KEY}/{{template_id}}/edit", response_class=HTMLResponse)
+def templates_edit(template_id: str, request: Request):
+    tpl = engine.get_template(template_id)
+    if tpl is None:
         return HTMLResponse("", status_code=404)
     return render(
         request,
         f"{KEY}/dialogs/edit/modal.html",
-        dict(
-            policy={**policy, "id": policy_id},
-            error=None,
-            templates=templates_engine.list_templates(),
-        ),
+        dict(tpl={**tpl, "id": template_id}, error=None),
     )
 
 
-@router.get(f"/ui/{KEY}/{{policy_id}}/delete", response_class=HTMLResponse)
-def policies_delete_modal(policy_id: str, request: Request):
-    policy = engine.get_policy(policy_id)
+@router.get(f"/ui/{KEY}/{{template_id}}/delete", response_class=HTMLResponse)
+def templates_delete_modal(template_id: str, request: Request):
+    tpl = engine.get_template(template_id)
     return render(
         request,
         "dialog_confirm.html",
         dict(
             title="Löschen",
-            description=policy.get("name", policy_id) if policy else policy_id,
+            description=tpl.get("name", template_id) if tpl else template_id,
             verb="löschen",
-            confirm_url=f"/api/{KEY}/{policy_id}",
+            confirm_url=f"/api/{KEY}/{template_id}",
             method="delete",
             reload_url=f"/ui/{KEY}/content",
         ),
     )
 
 
-@router.get(f"/ui/{KEY}/{{policy_id}}/toggle", response_class=HTMLResponse)
-def policies_toggle_modal(policy_id: str, request: Request):
-    policy = engine.get_policy(policy_id) or {}
+@router.get(f"/ui/{KEY}/{{template_id}}/toggle", response_class=HTMLResponse)
+def templates_toggle_modal(template_id: str, request: Request):
+    tpl = engine.get_template(template_id) or {}
     enabled = request.query_params.get("enabled", "True")
     verb = "deaktivieren" if enabled == "True" else "aktivieren"
     return render(
         request,
         "dialog_confirm.html",
         dict(
-            description=policy.get("name", policy_id),
+            description=tpl.get("name", template_id),
             verb=verb,
-            confirm_url=f"/api/{KEY}/{policy_id}/toggle",
+            confirm_url=f"/api/{KEY}/{template_id}/toggle",
             method="patch",
             reload_url=f"/ui/{KEY}/content",
         ),
@@ -183,7 +168,24 @@ async def _parse_form(request: Request) -> dict:
             {"name": name, "state": svc_states[i] if i < len(svc_states) else "enabled_started"}
         )
 
-    template_params = {k[3:]: v for k, v in form.multi_items() if k.startswith("tp_")}
+    param_keys = form.getlist("param_key")
+    param_labels = form.getlist("param_label")
+    param_defaults = form.getlist("param_default")
+    param_requireds = form.getlist("param_required")
+    params = []
+    for i, key in enumerate(param_keys):
+        key = key.strip()
+        if not key:
+            continue
+        default = (param_defaults[i] if i < len(param_defaults) else "").strip()
+        params.append(
+            {
+                "key": key,
+                "label": (param_labels[i] if i < len(param_labels) else "").strip() or key,
+                "default": default or None,
+                "required": (param_requireds[i] if i < len(param_requireds) else "0") == "1",
+            }
+        )
 
     return {
         "name": form.get("name", "").strip(),
@@ -199,8 +201,7 @@ async def _parse_form(request: Request) -> dict:
         },
         "config_files": config_files,
         "services": services,
-        "template_id": form.get("template_id", "").strip() or None,
-        "template_params": template_params,
+        "params": params,
     }
 
 
@@ -208,39 +209,31 @@ async def _parse_form(request: Request) -> dict:
 
 
 @router.post(f"/ui/{KEY}/", response_class=HTMLResponse)
-async def policies_create(request: Request):
+async def templates_create(request: Request):
     data = await _parse_form(request)
     if not data["name"]:
         return render(
             request,
             f"{KEY}/dialogs/edit/modal.html",
-            dict(
-                policy={**data, "id": None},
-                error="Name ist ein Pflichtfeld.",
-                templates=templates_engine.list_templates(),
-            ),
+            dict(tpl={**data, "id": None}, error="Name ist ein Pflichtfeld."),
             status_code=422,
         )
-    policy_id = uuid.uuid4().hex[:12]
-    engine.create_policy(policy_id, data)
+    template_id = uuid.uuid4().hex[:12]
+    engine.create_template(template_id, data)
     return render(request, "content.html", _list_ctx())
 
 
-@router.post(f"/ui/{KEY}/{{policy_id}}/update", response_class=HTMLResponse)
-async def policies_update(policy_id: str, request: Request):
+@router.post(f"/ui/{KEY}/{{template_id}}/update", response_class=HTMLResponse)
+async def templates_update(template_id: str, request: Request):
     data = await _parse_form(request)
     if not data["name"]:
         return render(
             request,
             f"{KEY}/dialogs/edit/modal.html",
-            dict(
-                policy={**data, "id": policy_id},
-                error="Name ist ein Pflichtfeld.",
-                templates=templates_engine.list_templates(),
-            ),
+            dict(tpl={**data, "id": template_id}, error="Name ist ein Pflichtfeld."),
             status_code=422,
         )
-    engine.update_policy(policy_id, data)
+    engine.update_template(template_id, data)
     return render(request, "content.html", _list_ctx())
 
 
@@ -249,16 +242,16 @@ async def policies_update(policy_id: str, request: Request):
 
 @api_router.get("/for-select")
 def for_select():
-    return {"options": engine.policies_for_select()}
+    return {"options": engine.templates_for_select()}
 
 
-@api_router.delete("/{policy_id}", status_code=204)
-def policies_delete(policy_id: str):
-    engine.delete_policy(policy_id)
+@api_router.delete("/{template_id}", status_code=204)
+def templates_delete(template_id: str):
+    engine.delete_template(template_id)
     return Response(status_code=204)
 
 
-@api_router.patch("/{policy_id}/toggle", status_code=204)
-def policies_toggle(policy_id: str):
-    engine.toggle_policy(policy_id)
+@api_router.patch("/{template_id}/toggle", status_code=204)
+def templates_toggle(template_id: str):
+    engine.toggle_template(template_id)
     return Response(status_code=204)

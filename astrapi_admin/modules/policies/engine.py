@@ -77,10 +77,24 @@ def resolve_policy_for_host(host: dict) -> dict:
     group_only_ids = [pid for pid in dict.fromkeys(group_policy_ids) if pid not in direct_set]
 
     store = _store()
+    template_errors: list = []
 
     def _load(pid: str) -> dict | None:
         p = store.get(pid)
-        return p if p and p.get("enabled", True) else None
+        if not p or not p.get("enabled", True):
+            return None
+        if p.get("template_id"):
+            from astrapi_admin.modules.templates.engine import TemplateRenderError, render_template
+
+            try:
+                expanded = render_template(p["template_id"], p.get("template_params") or {})
+            except TemplateRenderError as e:
+                template_errors.append(
+                    {"policy_id": pid, "template_id": p["template_id"], "detail": str(e)}
+                )
+                return None
+            return {**p, **expanded}
+        return p
 
     direct_policies = [(pid, _load(pid)) for pid in direct_ids]
     direct_policies = [(pid, p) for pid, p in direct_policies if p]
@@ -146,5 +160,6 @@ def resolve_policy_for_host(host: dict) -> dict:
         "config_files": config_files,
         "services": services,
         "conflicts": conflicts,
-        "status": "conflict" if conflicts else "ok",
+        "template_errors": template_errors,
+        "status": "conflict" if (conflicts or template_errors) else "ok",
     }

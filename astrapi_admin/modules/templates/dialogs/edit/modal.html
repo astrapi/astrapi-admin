@@ -1,0 +1,218 @@
+{#
+  astrapi_admin/modules/templates/dialogs/edit/modal.html
+  Vorlagen-Formular: Pakete (present/absent je Distro), Config-Dateien
+  (koennen {{ '{{ param }}' }}-Platzhalter enthalten), Services, Parameter
+  (das Formular, das eine Policy beim Verwenden dieser Vorlage ausfuellt).
+  Variablen: tpl (dict|None), error (str|None)
+#}
+{% extends "dialog_form.html" %}
+{% import 'partials/components/ui_macros.html' as ui %}
+
+{% set is_new = tpl is none or tpl.get('id') is none %}
+
+{% block dialog_width %}720{% endblock %}
+{% block dialog_title %}{{ 'Vorlage bearbeiten' if not is_new else 'Neue Vorlage' }}{% endblock %}
+{% block form_id %}template-form{% endblock %}
+{% block form_action %}{% if is_new %}/ui/templates/{% else %}/ui/templates/{{ tpl.id }}/update{% endif %}{% endblock %}
+{% block form_style %}display:flex; flex-direction:column; gap:16px;{% endblock %}
+
+{% block dialog_body %}
+  {% if error %}
+  <div style="padding:8px 12px;border-radius:6px;
+              background:var(--error-dim,#3a0000);color:var(--error,#ff6b6b);font-size:13px;">{{ error }}</div>
+  {% endif %}
+
+  <div class="form-group">
+    <label class="form-label">Name <span class="required-mark">*</span></label>
+    <input class="form-input" type="text" name="name"
+           value="{{ tpl.name if tpl else '' }}"
+           placeholder="z.B. Caddy" required autocomplete="off">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Beschreibung</label>
+    <input class="form-input" type="text" name="description"
+           value="{{ tpl.description if tpl else '' }}"
+           placeholder="z.B. Caddy Reverse-Proxy" autocomplete="off">
+  </div>
+
+  <!-- Pakete -->
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:8px;">Pakete</label>
+    <div class="policy-pkg-grid">
+      <div>
+        <div class="policy-subhead">Arch – muss vorhanden sein</div>
+        <textarea class="form-input policy-textarea" name="packages_arch_present"
+                  placeholder="ein Paket pro Zeile&#10;z.B. caddy">{{ (tpl.packages_arch.present | join('\n')) if tpl and tpl.packages_arch else '' }}</textarea>
+      </div>
+      <div>
+        <div class="policy-subhead">Arch – darf nicht vorhanden sein</div>
+        <textarea class="form-input policy-textarea" name="packages_arch_absent"
+                  placeholder="ein Paket pro Zeile">{{ (tpl.packages_arch.absent | join('\n')) if tpl and tpl.packages_arch else '' }}</textarea>
+      </div>
+      <div>
+        <div class="policy-subhead">Debian – muss vorhanden sein</div>
+        <textarea class="form-input policy-textarea" name="packages_debian_present"
+                  placeholder="ein Paket pro Zeile">{{ (tpl.packages_debian.present | join('\n')) if tpl and tpl.packages_debian else '' }}</textarea>
+      </div>
+      <div>
+        <div class="policy-subhead">Debian – darf nicht vorhanden sein</div>
+        <textarea class="form-input policy-textarea" name="packages_debian_absent"
+                  placeholder="ein Paket pro Zeile">{{ (tpl.packages_debian.absent | join('\n')) if tpl and tpl.packages_debian else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config-Dateien -->
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:4px;">Config-Dateien</label>
+    <div class="policy-subhead" style="margin-bottom:8px;">Inhalt kann {{ '{{ parametername }}' }}-Platzhalter enthalten (Jinja2) — siehe Parameter unten.</div>
+    <div id="tpl-cf-rows" class="policy-rows"></div>
+    <button type="button" class="btn btn-ghost" style="font-size:12px;" onclick="tplAddConfigFile()">+ Config-Datei</button>
+  </div>
+
+  <!-- Services -->
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:8px;">Services</label>
+    <div id="tpl-svc-rows" class="policy-rows"></div>
+    <button type="button" class="btn btn-ghost" style="font-size:12px;" onclick="tplAddService()">+ Service</button>
+  </div>
+
+  <!-- Parameter -->
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:4px;">Parameter</label>
+    <div class="policy-subhead" style="margin-bottom:8px;">Werte, die beim Zuweisen dieser Vorlage an eine Policy abgefragt werden.</div>
+    <div id="tpl-param-rows" class="policy-rows"></div>
+    <button type="button" class="btn btn-ghost" style="font-size:12px;" onclick="tplAddParam()">+ Parameter</button>
+  </div>
+
+  <style>
+    .policy-pkg-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .policy-subhead { font-size:11px; color:var(--text-3); margin-bottom:4px; }
+    .policy-textarea { width:100%; min-height:70px; font-family:monospace; font-size:12px; resize:vertical; }
+    .policy-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+    .policy-row {
+      display:flex; gap:6px; align-items:flex-start; padding:8px;
+      border:1px solid var(--border-s); border-radius:var(--rad-lg); background:var(--card);
+    }
+    .policy-row input, .policy-row select, .policy-row textarea { font-size:12px; }
+    .policy-row .policy-row-remove {
+      background:none; border:none; color:var(--text-3); cursor:pointer;
+      font-size:16px; line-height:1; padding:4px;
+    }
+    .policy-cf-path { flex:2; min-width:0; }
+    .policy-cf-action { flex:1; min-width:100px; }
+    .policy-cf-content { flex:2; min-width:0; min-height:32px; font-family:monospace; }
+    .policy-cf-mode, .policy-cf-owner, .policy-cf-group { width:70px; flex-shrink:0; }
+    .policy-svc-name { flex:2; min-width:0; }
+    .policy-svc-state { flex:1; min-width:140px; }
+    .tpl-param-key { flex:1; min-width:0; font-family:monospace; }
+    .tpl-param-label { flex:1; min-width:0; }
+    .tpl-param-default { flex:1; min-width:0; }
+    .tpl-param-required { width:100px; flex-shrink:0; }
+  </style>
+{% endblock %}
+
+{% block dialog_footer %}
+{{ ui.modal_footer(
+  enabled=(tpl.enabled if tpl else True),
+  enabled_id='template-enabled',
+  save_label=('Speichern' if not is_new else 'Erstellen'),
+) }}
+{% endblock %}
+
+{% block dialog_scripts %}
+<script>
+(function () {
+  var cfRows    = document.getElementById('tpl-cf-rows');
+  var svcRows   = document.getElementById('tpl-svc-rows');
+  var paramRows = document.getElementById('tpl-param-rows');
+
+  var CF_ACTIONS = [['enforce', 'Durchsetzen'], ['absent', 'Entfernen']];
+  var SVC_STATES = [
+    ['enabled_started',  'Aktiviert + Gestartet'],
+    ['enabled',          'Nur Aktiviert'],
+    ['started',          'Nur Gestartet'],
+    ['disabled_stopped', 'Deaktiviert + Gestoppt'],
+    ['disabled',         'Nur Deaktiviert'],
+    ['stopped',          'Nur Gestoppt'],
+  ];
+  var REQUIRED_OPTS = [['0', 'Optional'], ['1', 'Pflicht']];
+
+  function opt(value, label, selected) {
+    return '<option value="' + value + '"' + (selected ? ' selected' : '') + '>' + label + '</option>';
+  }
+  function esc(s) { return (s || '').toString().replace(/"/g, '&quot;'); }
+
+  window.tplAddConfigFile = function (cf) {
+    cf = cf || {};
+    var row = document.createElement('div');
+    row.className = 'policy-row';
+    var action = cf.action || 'enforce';
+    row.innerHTML =
+      '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/caddy/Caddyfile" value="' + esc(cf.path) + '">' +
+      '<select class="form-input policy-cf-action" name="cf_action" onchange="tplToggleCfContent(this)">' +
+        CF_ACTIONS.map(function (a) { return opt(a[0], a[1], a[0] === action); }).join('') +
+      '</select>' +
+      '<textarea class="form-input policy-cf-content" name="cf_content" placeholder="Dateiinhalt, z.B. {{ '{{ domain }}' }} { ... }" ' +
+        (action === 'absent' ? 'style="display:none;"' : '') + '>' + (cf.content || '') + '</textarea>' +
+      '<input class="form-input policy-cf-mode" name="cf_mode" type="text" placeholder="0644" value="' + (cf.mode || '0644') + '">' +
+      '<input class="form-input policy-cf-owner" name="cf_owner" type="text" placeholder="root" value="' + (cf.owner || 'root') + '">' +
+      '<input class="form-input policy-cf-group" name="cf_group" type="text" placeholder="root" value="' + (cf.group || 'root') + '">' +
+      '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-row\').remove()">×</button>';
+    cfRows.appendChild(row);
+  };
+
+  window.tplToggleCfContent = function (select) {
+    var row = select.closest('.policy-row');
+    var content = row.querySelector('.policy-cf-content');
+    content.style.display = select.value === 'absent' ? 'none' : '';
+  };
+
+  window.tplAddService = function (svc) {
+    svc = svc || {};
+    var row = document.createElement('div');
+    row.className = 'policy-row';
+    var state = svc.state || 'enabled_started';
+    row.innerHTML =
+      '<input class="form-input policy-svc-name" name="svc_name" type="text" placeholder="z.B. caddy" value="' + esc(svc.name) + '">' +
+      '<select class="form-input policy-svc-state" name="svc_state">' +
+        SVC_STATES.map(function (s) { return opt(s[0], s[1], s[0] === state); }).join('') +
+      '</select>' +
+      '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-row\').remove()">×</button>';
+    svcRows.appendChild(row);
+  };
+
+  window.tplAddParam = function (p) {
+    p = p || {};
+    var row = document.createElement('div');
+    row.className = 'policy-row';
+    var required = p.required ? '1' : '0';
+    row.innerHTML =
+      '<input class="form-input tpl-param-key" name="param_key" type="text" placeholder="domain" value="' + esc(p.key) + '">' +
+      '<input class="form-input tpl-param-label" name="param_label" type="text" placeholder="Domain" value="' + esc(p.label) + '">' +
+      '<input class="form-input tpl-param-default" name="param_default" type="text" placeholder="Default (optional)" value="' + esc(p.default) + '">' +
+      '<select class="form-input tpl-param-required" name="param_required">' +
+        REQUIRED_OPTS.map(function (r) { return opt(r[0], r[1], r[0] === required); }).join('') +
+      '</select>' +
+      '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-row\').remove()">×</button>';
+    paramRows.appendChild(row);
+  };
+
+  {% if tpl and tpl.config_files %}
+  var initialCf = {{ tpl.config_files | tojson }};
+  initialCf.forEach(function (cf) { tplAddConfigFile(cf); });
+  {% endif %}
+
+  {% if tpl and tpl.services %}
+  var initialSvc = {{ tpl.services | tojson }};
+  initialSvc.forEach(function (svc) { tplAddService(svc); });
+  {% endif %}
+
+  {% if tpl and tpl.params %}
+  var initialParams = {{ tpl.params | tojson }};
+  initialParams.forEach(function (p) { tplAddParam(p); });
+  {% endif %}
+})();
+</script>
+{% endblock %}
