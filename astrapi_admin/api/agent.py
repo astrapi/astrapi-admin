@@ -96,10 +96,13 @@ def pair(payload: PairRequest):
 
 @router.get("/policy")
 def get_policy(host_data=Depends(require_host)):
+    from astrapi_admin.modules.hosts.mirror_repos import resolve_mirror_config_files
     from astrapi_admin.modules.policies.engine import resolve_policy_for_host
 
     _host_id, host = host_data
-    return resolve_policy_for_host(host)
+    result = resolve_policy_for_host(host)
+    resolve_mirror_config_files(host, result)
+    return result
 
 
 @router.post("/report")

@@ -1,0 +1,11 @@
+fields:
+  - type: section
+    label: astrapi-mirror
+    cols: 1
+
+  - key: mirror_base_url
+    label: Basis-URL
+    type: text
+    description: "Für die Mirror-Quellen-Auswahl am Host, z.B. https://mirror.simpsons.lan"
+    mono: true
+    default: "https://mirror.simpsons.lan"

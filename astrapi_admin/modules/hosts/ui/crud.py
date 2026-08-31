@@ -6,6 +6,8 @@ from astrapi_core.ui.field_resolver import resolve_options_endpoint
 from astrapi_core.ui.htmx_crud_router import make_htmx_crud_router
 from astrapi_core.ui.store import SqliteTableStore
 
+from astrapi_admin.modules.hosts import mirror_client
+
 KEY = "hosts"
 _DIR = Path(__file__).parent.parent
 store = SqliteTableStore(KEY)
@@ -48,6 +50,11 @@ def hosts_for_select() -> list[dict]:
 @api_router.get("/for-select")
 def for_select():
     return {"options": hosts_for_select()}
+
+
+@api_router.get("/mirror-repos-for-select")
+def mirror_repos_for_select():
+    return {"options": mirror_client.list_debian_repos()}
 
 
 router = make_crud_router(

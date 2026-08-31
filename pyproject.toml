@@ -13,6 +13,7 @@ dependencies = [
     "psutil==7.2.2",
     "apispec==6.10.0",
     "webauthn==3.0.0",
+    "httpx==0.28.1",
     "astrapi-core>=26.8.37",
 ]
 

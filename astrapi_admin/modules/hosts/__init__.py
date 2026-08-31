@@ -13,6 +13,7 @@ _DDL = """
         os_type     TEXT    NOT NULL DEFAULT '',
         group_ids   TEXT    NOT NULL DEFAULT '',
         policy_ids  TEXT    NOT NULL DEFAULT '',
+        mirror_repos TEXT   NOT NULL DEFAULT '',
         token_hash  TEXT    NOT NULL DEFAULT '',
         last_seen   TEXT    NOT NULL DEFAULT '',
         last_report TEXT    NOT NULL DEFAULT '',
@@ -20,13 +21,24 @@ _DDL = """
         enabled     INTEGER NOT NULL DEFAULT 1
     )"""
 
-register_table(_KEY, _DDL, list_fields=["group_ids", "policy_ids"])
+register_table(_KEY, _DDL, list_fields=["group_ids", "policy_ids", "mirror_repos"])
 
 from astrapi_core.ui.controls import Col, ContentTable, Header  # noqa: E402
+from astrapi_core.ui.field_resolver import register_options_fetcher as _reg  # noqa: E402
 
+from astrapi_admin.modules.hosts import mirror_client  # noqa: E402
+from astrapi_admin.modules.hosts.ui import pairing as _pairing  # noqa: E402,F401 – registriert Routen auf ui_router
 from astrapi_admin.modules.hosts.ui.crud import api_router as router  # noqa: E402
 from astrapi_admin.modules.hosts.ui.crud import router as ui_router  # noqa: E402
-from astrapi_admin.modules.hosts.ui import pairing as _pairing  # noqa: E402,F401 – registriert Routen auf ui_router
+
+
+def _mirror_repos_options_fetcher(endpoint: str) -> list:
+    return mirror_client.list_debian_repos()
+
+
+# Ohne diese Registrierung bleibt das Mirror-Quellen-Multiselect im
+# Host-Dialog dauerhaft leer -- gleiche Fehlerklasse wie T-270-ADMIN.
+_reg("/api/hosts/mirror-repos-for-select", _mirror_repos_options_fetcher)
 
 module = load_modul(
     Path(__file__).parent,

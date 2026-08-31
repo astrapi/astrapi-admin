@@ -42,9 +42,17 @@ fields:
     row: 4
     colspan: 2
 
+  - name: mirror_repos
+    type: multiselect
+    label: Mirror-Quellen (Debian)
+    options_endpoint: /api/hosts/mirror-repos-for-select
+    column: 1
+    row: 5
+    colspan: 2
+
   - name: enabled
     type: boolean
     label: Aktiviert
     default: true
     column: 1
-    row: 5
+    row: 6
