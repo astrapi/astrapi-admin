@@ -84,11 +84,17 @@
       background:none; border:none; color:var(--text-3); cursor:pointer;
       font-size:16px; line-height:1; padding:4px;
     }
+    .policy-cf-card {
+      display:flex; flex-direction:column; gap:8px; padding:8px;
+      border:1px solid var(--border-s); border-radius:var(--rad-lg); background:var(--card);
+    }
+    .policy-cf-card input, .policy-cf-card select, .policy-cf-card textarea { font-size:12px; }
+    .policy-cf-topline { display:flex; gap:6px; align-items:center; }
     .policy-cf-path { flex:2; min-width:0; }
     .policy-cf-action { flex:1; min-width:100px; }
-    .policy-cf-content { flex:2; min-width:0; min-height:32px; font-family:monospace; }
     .policy-cf-mode, .policy-cf-owner, .policy-cf-group { width:70px; flex-shrink:0; }
     .policy-cf-force { width:100px; flex-shrink:0; }
+    .policy-cf-content { width:100%; min-height:220px; font-family:monospace; resize:vertical; }
     .policy-svc-name { flex:2; min-width:0; }
     .policy-svc-state { flex:1; min-width:140px; }
   </style>
@@ -125,31 +131,33 @@
 
   window.policyAddConfigFile = function (cf) {
     cf = cf || {};
-    var row = document.createElement('div');
-    row.className = 'policy-row';
+    var card = document.createElement('div');
+    card.className = 'policy-cf-card';
     var action = cf.action || 'enforce';
     var force = cf.force ? '1' : '0';
-    row.innerHTML =
-      '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/pfad/datei.conf" value="' +
-        (cf.path || '').replace(/"/g, '&quot;') + '">' +
-      '<select class="form-input policy-cf-action" name="cf_action" onchange="policyToggleCfContent(this)">' +
-        CF_ACTIONS.map(function (a) { return opt(a[0], a[1], a[0] === action); }).join('') +
-      '</select>' +
-      '<textarea class="form-input policy-cf-content" name="cf_content" placeholder="Dateiinhalt" ' +
-        (action === 'absent' ? 'style="display:none;"' : '') + '>' + (cf.content || '') + '</textarea>' +
-      '<input class="form-input policy-cf-mode" name="cf_mode" type="text" placeholder="0644" value="' + (cf.mode || '0644') + '">' +
-      '<input class="form-input policy-cf-owner" name="cf_owner" type="text" placeholder="root" value="' + (cf.owner || 'root') + '">' +
-      '<input class="form-input policy-cf-group" name="cf_group" type="text" placeholder="root" value="' + (cf.group || 'root') + '">' +
-      '<select class="form-input policy-cf-force" name="cf_force" title="Erzwingen überschreibt auch Dateien, die einem Paket gehören (z.B. eine vom OS-Paket mitgelieferte Standard-Config)">' +
-        CF_FORCE.map(function (f) { return opt(f[0], f[1], f[0] === force); }).join('') +
-      '</select>' +
-      '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-row\').remove()">×</button>';
-    cfRows.appendChild(row);
+    card.innerHTML =
+      '<div class="policy-cf-topline">' +
+        '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/pfad/datei.conf" value="' +
+          (cf.path || '').replace(/"/g, '&quot;') + '">' +
+        '<select class="form-input policy-cf-action" name="cf_action" onchange="policyToggleCfContent(this)">' +
+          CF_ACTIONS.map(function (a) { return opt(a[0], a[1], a[0] === action); }).join('') +
+        '</select>' +
+        '<input class="form-input policy-cf-mode" name="cf_mode" type="text" placeholder="0644" value="' + (cf.mode || '0644') + '">' +
+        '<input class="form-input policy-cf-owner" name="cf_owner" type="text" placeholder="root" value="' + (cf.owner || 'root') + '">' +
+        '<input class="form-input policy-cf-group" name="cf_group" type="text" placeholder="root" value="' + (cf.group || 'root') + '">' +
+        '<select class="form-input policy-cf-force" name="cf_force" title="Erzwingen überschreibt auch Dateien, die einem Paket gehören (z.B. eine vom OS-Paket mitgelieferte Standard-Config)">' +
+          CF_FORCE.map(function (f) { return opt(f[0], f[1], f[0] === force); }).join('') +
+        '</select>' +
+        '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-cf-card\').remove()">×</button>' +
+      '</div>' +
+      '<textarea class="form-input policy-cf-content" name="cf_content" placeholder="Dateiinhalt" rows="12" ' +
+        (action === 'absent' ? 'style="display:none;"' : '') + '>' + (cf.content || '') + '</textarea>';
+    cfRows.appendChild(card);
   };
 
   window.policyToggleCfContent = function (select) {
-    var row = select.closest('.policy-row');
-    var content = row.querySelector('.policy-cf-content');
+    var card = select.closest('.policy-cf-card');
+    var content = card.querySelector('.policy-cf-content');
     content.style.display = select.value === 'absent' ? 'none' : '';
   };
 
