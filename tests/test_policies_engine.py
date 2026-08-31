@@ -150,3 +150,52 @@ def test_groups_store_importierbar():
     """Reiner Smoke-Test, dass der Import in resolve_policy_for_host()
     weiterhin funktioniert (host_groups-Modul unveraendert)."""
     assert groups_store.list() == {}
+
+
+def test_resolve_policy_for_host_gibt_force_flag_weiter():
+    """config_files[].force muss bis zum Agenten durchgereicht werden --
+    sonst kann die Fremdbesitz-Ausnahme (z.B. Caddy-Template ersetzt die
+    vom Paket mitgelieferte Caddyfile) nie greifen."""
+    policies_engine.create_policy(
+        "p1",
+        {
+            "name": "erzwungen",
+            "enabled": True,
+            "config_files": [
+                {"path": "/etc/caddy/Caddyfile", "action": "enforce", "content": "x", "force": True}
+            ],
+        },
+    )
+    host = _host(policy_ids=["p1"])
+
+    result = policies_engine.resolve_policy_for_host(host)
+
+    assert result["config_files"][0]["force"] is True
+
+
+def test_resolve_policy_for_host_force_unterschied_ist_ein_konflikt():
+    """Zwei Policies auf derselben Vorrangstufe, die sich nur im
+    force-Flag unterscheiden, duerfen nicht still aufgeloest werden --
+    das ist ein echter Unterschied im gewuenschten Verhalten."""
+    policies_engine.create_policy(
+        "p1",
+        {
+            "name": "geschuetzt",
+            "enabled": True,
+            "config_files": [{"path": "/etc/x.conf", "action": "enforce", "content": "x", "force": False}],
+        },
+    )
+    policies_engine.create_policy(
+        "p2",
+        {
+            "name": "erzwungen",
+            "enabled": True,
+            "config_files": [{"path": "/etc/x.conf", "action": "enforce", "content": "x", "force": True}],
+        },
+    )
+    host = _host(policy_ids=["p1", "p2"])
+
+    result = policies_engine.resolve_policy_for_host(host)
+
+    assert result["status"] == "conflict"
+    assert result["conflicts"] == [{"type": "config_file", "path": "/etc/x.conf"}]

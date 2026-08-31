@@ -104,6 +104,7 @@
     .policy-cf-action { flex:1; min-width:100px; }
     .policy-cf-content { flex:2; min-width:0; min-height:32px; font-family:monospace; }
     .policy-cf-mode, .policy-cf-owner, .policy-cf-group { width:70px; flex-shrink:0; }
+    .policy-cf-force { width:100px; flex-shrink:0; }
     .policy-svc-name { flex:2; min-width:0; }
     .policy-svc-state { flex:1; min-width:140px; }
     .tpl-param-key { flex:1; min-width:0; font-family:monospace; }
@@ -129,6 +130,7 @@
   var paramRows = document.getElementById('tpl-param-rows');
 
   var CF_ACTIONS = [['enforce', 'Durchsetzen'], ['absent', 'Entfernen']];
+  var CF_FORCE = [['0', 'Geschützt'], ['1', 'Erzwingen']];
   var SVC_STATES = [
     ['enabled_started',  'Aktiviert + Gestartet'],
     ['enabled',          'Nur Aktiviert'],
@@ -149,6 +151,7 @@
     var row = document.createElement('div');
     row.className = 'policy-row';
     var action = cf.action || 'enforce';
+    var force = cf.force ? '1' : '0';
     row.innerHTML =
       '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/caddy/Caddyfile" value="' + esc(cf.path) + '">' +
       '<select class="form-input policy-cf-action" name="cf_action" onchange="tplToggleCfContent(this)">' +
@@ -159,6 +162,9 @@
       '<input class="form-input policy-cf-mode" name="cf_mode" type="text" placeholder="0644" value="' + (cf.mode || '0644') + '">' +
       '<input class="form-input policy-cf-owner" name="cf_owner" type="text" placeholder="root" value="' + (cf.owner || 'root') + '">' +
       '<input class="form-input policy-cf-group" name="cf_group" type="text" placeholder="root" value="' + (cf.group || 'root') + '">' +
+      '<select class="form-input policy-cf-force" name="cf_force" title="Erzwingen überschreibt auch Dateien, die einem Paket gehören (z.B. eine vom OS-Paket mitgelieferte Standard-Config)">' +
+        CF_FORCE.map(function (f) { return opt(f[0], f[1], f[0] === force); }).join('') +
+      '</select>' +
       '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-row\').remove()">×</button>';
     cfRows.appendChild(row);
   };

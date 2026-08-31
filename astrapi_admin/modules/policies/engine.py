@@ -118,7 +118,14 @@ def resolve_policy_for_host(host: dict) -> dict:
                 path = (cf.get("path") or "").strip()
                 if not path:
                     continue
-                sig = (cf.get("action"), cf.get("content"), cf.get("mode"), cf.get("owner"), cf.get("group"))
+                sig = (
+                    cf.get("action"),
+                    cf.get("content"),
+                    cf.get("mode"),
+                    cf.get("owner"),
+                    cf.get("group"),
+                    cf.get("force"),
+                )
                 cfg_entries.setdefault(path, []).append((tier, pid, sig, cf))
             for svc in pol.get("services") or []:
                 name = (svc.get("name") or "").strip()
