@@ -17,9 +17,21 @@ _DDL = """
 register_table(_KEY, _DDL, list_fields=["policy_ids"])
 
 from astrapi_core.ui.controls import Col, ContentTable  # noqa: E402
+from astrapi_core.ui.field_resolver import register_options_fetcher as _reg  # noqa: E402
 
 from astrapi_admin.modules.host_groups.ui.crud import api_router as router  # noqa: E402
+from astrapi_admin.modules.host_groups.ui.crud import groups_for_select  # noqa: E402
 from astrapi_admin.modules.host_groups.ui.crud import router as ui_router  # noqa: E402
+
+
+def _groups_options_fetcher(endpoint: str) -> list:
+    return groups_for_select()
+
+
+# Ohne diese Registrierung bleibt hosts.group_ids (options_endpoint:
+# /api/host_groups/for-select) dauerhaft leer -- siehe gleiche
+# Begruendung in modules/policies/__init__.py, T-270-ADMIN.
+_reg("/api/host_groups/for-select", _groups_options_fetcher)
 
 module = load_modul(
     Path(__file__).parent,
