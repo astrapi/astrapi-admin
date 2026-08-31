@@ -3,10 +3,20 @@
 GPO-artige Aufloesung: host-direkte Zuweisung schlaegt Gruppen-Zuweisung,
 Widersprueche auf derselben Vorrangstufe werden NICHT still aufgeloest
 (siehe resolve_policy_for_host())."""
+from astrapi_core.system.secrets import get_secret_safe
 from astrapi_core.ui.storage import SqliteStorage
 
 _TIER_DIRECT = 2
 _TIER_GROUP = 1
+
+
+def secret_name(policy_id: str, path: str) -> str:
+    """Eindeutiger Fernet-Secret-Schluessel fuer einen als secret=true
+    markierten config_files-Eintrag -- der eigentliche Inhalt liegt NIE
+    im Policy-JSON (SqliteStorage-Blob), sondern ausschliesslich hier
+    (astrapi_core.system.secrets, Fernet-verschluesselt, Schluessel
+    ausserhalb des DB-Backup-Pfads, siehe G-008)."""
+    return f"policy_cf_secret.{policy_id}.{path}"
 
 
 def _store():
@@ -122,6 +132,7 @@ def resolve_policy_for_host(host: dict) -> dict:
                     cf.get("owner"),
                     cf.get("group"),
                     cf.get("force"),
+                    cf.get("secret"),
                 )
                 cfg_entries.setdefault(path, []).append((tier, pid, sig, cf))
             for svc in pol.get("services") or []:
@@ -140,7 +151,12 @@ def resolve_policy_for_host(host: dict) -> dict:
         if conflict:
             conflicts.append({"type": "config_file", "path": path})
             continue
-        config_files.append(winner[3])
+        _tier, pid, _sig, cf = winner
+        if cf.get("secret"):
+            # Klartext existiert nie im Policy-JSON -- erst hier, kurz vor
+            # der Auslieferung an den Agenten, aus dem Secrets-Store geholt.
+            cf = {**cf, "content": get_secret_safe(secret_name(pid, path))}
+        config_files.append(cf)
 
     services = []
     for name, entries in svc_entries.items():

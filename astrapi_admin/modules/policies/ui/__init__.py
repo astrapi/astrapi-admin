@@ -5,6 +5,7 @@ scheduler-Modul), weil Pakete/Config-Dateien/Services jeweils eigene
 Tabellen-/Listen-Widgets brauchen, kein simples Formularfeld-Set."""
 import uuid
 
+from astrapi_core.system.secrets import get_secret_safe, set_secret
 from astrapi_core.ui.controls import Col, ContentTable
 from astrapi_core.ui.page_factory import register_content_renderer
 from astrapi_core.ui.render import render, render_string
@@ -47,6 +48,20 @@ def _summary(p: dict) -> str:
     return ", ".join(parts) or "leer"
 
 
+def _with_secret_status(policy_id: str, config_files: list[dict]) -> list[dict]:
+    """Haengt secret_is_set (nur ob GESETZT, nie den Wert selbst) an
+    secret=true-Eintraege fuers Formular -- Textarea bleibt in
+    modal.html immer leer, der Placeholder unterscheidet nur
+    'gesetzt, leer lassen zum Behalten' von 'noch nicht gesetzt'."""
+    out = []
+    for cf in config_files:
+        cf = dict(cf)
+        if cf.get("secret"):
+            cf["secret_is_set"] = bool(get_secret_safe(engine.secret_name(policy_id, cf["path"])))
+        out.append(cf)
+    return out
+
+
 def _list_ctx() -> dict:
     policies = engine.list_policies()
     return {
@@ -85,10 +100,15 @@ def policies_edit(policy_id: str, request: Request):
     policy = engine.get_policy(policy_id)
     if policy is None:
         return HTMLResponse("", status_code=404)
+    policy = {
+        **policy,
+        "id": policy_id,
+        "config_files": _with_secret_status(policy_id, policy.get("config_files") or []),
+    }
     return render(
         request,
         f"{KEY}/dialogs/edit/modal.html",
-        dict(policy={**policy, "id": policy_id}, error=None),
+        dict(policy=policy, error=None),
     )
 
 
@@ -130,7 +150,11 @@ def policies_toggle_modal(policy_id: str, request: Request):
 # ── Form-Parsing ─────────────────────────────────────────────────────────
 
 
-async def _parse_form(request: Request) -> dict:
+async def _parse_form(request: Request, policy_id: str) -> dict:
+    """policy_id muss VOR dem Parsen feststehen (bei policies_create() also
+    schon vor dem eigentlichen Anlegen erzeugt werden) -- secret=true-Zeilen
+    schreiben ihren Klartext direkt unter secret_name(policy_id, path) in
+    den Secrets-Store, nie ins zurueckgegebene dict."""
     form = await request.form()
 
     paths = form.getlist("cf_path")
@@ -140,20 +164,30 @@ async def _parse_form(request: Request) -> dict:
     owners = form.getlist("cf_owner")
     groups = form.getlist("cf_group")
     forces = form.getlist("cf_force")
+    secret_flags = form.getlist("cf_secret")
     config_files = []
     for i, path in enumerate(paths):
         path = path.strip()
         if not path:
             continue
+        is_secret = (secret_flags[i] if i < len(secret_flags) else "0") == "1"
+        content = contents[i] if i < len(contents) else ""
+        if is_secret:
+            # Leer gelassen = bestehenden Wert behalten (wie ein
+            # Passwort-Feld) -- nur bei echter Eingabe ueberschreiben.
+            if content:
+                set_secret(engine.secret_name(policy_id, path), content)
+            content = ""
         config_files.append(
             {
                 "path": path,
                 "action": actions[i] if i < len(actions) else "enforce",
-                "content": contents[i] if i < len(contents) else "",
+                "content": content,
                 "mode": (modes[i] if i < len(modes) else "").strip() or "0644",
                 "owner": (owners[i] if i < len(owners) else "").strip() or "root",
                 "group": (groups[i] if i < len(groups) else "").strip() or "root",
                 "force": (forces[i] if i < len(forces) else "0") == "1",
+                "secret": is_secret,
             }
         )
 
@@ -184,7 +218,10 @@ async def _parse_form(request: Request) -> dict:
 
 @router.post(f"/ui/{KEY}/", response_class=HTMLResponse)
 async def policies_create(request: Request):
-    data = await _parse_form(request)
+    # policy_id muss vor _parse_form() feststehen -- secret=true-Zeilen
+    # brauchen ihn schon beim Parsen fuer den Secrets-Store-Schluessel.
+    policy_id = uuid.uuid4().hex[:12]
+    data = await _parse_form(request, policy_id)
     if not data["name"]:
         return render(
             request,
@@ -192,15 +229,15 @@ async def policies_create(request: Request):
             dict(policy={**data, "id": None}, error="Name ist ein Pflichtfeld."),
             status_code=422,
         )
-    policy_id = uuid.uuid4().hex[:12]
     engine.create_policy(policy_id, data)
     return render(request, "content.html", _list_ctx())
 
 
 @router.post(f"/ui/{KEY}/{{policy_id}}/update", response_class=HTMLResponse)
 async def policies_update(policy_id: str, request: Request):
-    data = await _parse_form(request)
+    data = await _parse_form(request, policy_id)
     if not data["name"]:
+        data["config_files"] = _with_secret_status(policy_id, data["config_files"])
         return render(
             request,
             f"{KEY}/dialogs/edit/modal.html",

@@ -94,6 +94,7 @@
     .policy-cf-action { flex:1; min-width:100px; }
     .policy-cf-mode, .policy-cf-owner, .policy-cf-group { width:70px; flex-shrink:0; }
     .policy-cf-force { width:100px; flex-shrink:0; }
+    .policy-cf-secret { width:100px; flex-shrink:0; }
     .policy-cf-content { width:100%; min-height:220px; font-family:monospace; resize:vertical; }
     .policy-svc-name { flex:2; min-width:0; }
     .policy-svc-state { flex:1; min-width:140px; }
@@ -116,6 +117,7 @@
 
   var CF_ACTIONS  = [['enforce', 'Durchsetzen'], ['absent', 'Entfernen']];
   var CF_FORCE    = [['0', 'Geschützt'], ['1', 'Erzwingen']];
+  var CF_SECRET   = [['0', 'Normal'], ['1', 'Geheimnis']];
   var SVC_STATES  = [
     ['enabled_started',  'Aktiviert + Gestartet'],
     ['enabled',          'Nur Aktiviert'],
@@ -135,6 +137,14 @@
     card.className = 'policy-cf-card';
     var action = cf.action || 'enforce';
     var force = cf.force ? '1' : '0';
+    var isSecret = cf.secret ? '1' : '0';
+    // secret=true: Inhalt kommt NIE vom Server in die Textarea (siehe
+    // policies/ui/__init__.py::_with_secret_status()) -- Placeholder
+    // unterscheidet nur, ob bereits ein Wert im Secrets-Store liegt.
+    var contentValue = cf.secret ? '' : (cf.content || '');
+    var contentPlaceholder = cf.secret
+      ? (cf.secret_is_set ? 'Geheimnis gesetzt -- leer lassen, um es zu behalten' : 'Neues Geheimnis eintragen')
+      : 'Dateiinhalt';
     card.innerHTML =
       '<div class="policy-cf-topline">' +
         '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/pfad/datei.conf" value="' +
@@ -148,10 +158,13 @@
         '<select class="form-input policy-cf-force" name="cf_force" title="Erzwingen überschreibt auch Dateien, die einem Paket gehören (z.B. eine vom OS-Paket mitgelieferte Standard-Config)">' +
           CF_FORCE.map(function (f) { return opt(f[0], f[1], f[0] === force); }).join('') +
         '</select>' +
+        '<select class="form-input policy-cf-secret" name="cf_secret" title="Geheimnis: Inhalt wird verschlüsselt separat gespeichert, nie im Klartext in der Policy">' +
+          CF_SECRET.map(function (s) { return opt(s[0], s[1], s[0] === isSecret); }).join('') +
+        '</select>' +
         '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-cf-card\').remove()">×</button>' +
       '</div>' +
-      '<textarea class="form-input policy-cf-content" name="cf_content" placeholder="Dateiinhalt" rows="12" ' +
-        (action === 'absent' ? 'style="display:none;"' : '') + '>' + (cf.content || '') + '</textarea>';
+      '<textarea class="form-input policy-cf-content" name="cf_content" placeholder="' + contentPlaceholder + '" rows="12" ' +
+        (action === 'absent' ? 'style="display:none;"' : '') + '>' + contentValue + '</textarea>';
     cfRows.appendChild(card);
   };
 
