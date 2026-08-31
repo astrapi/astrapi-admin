@@ -7,14 +7,15 @@ _KEY = Path(__file__).parent.name
 
 _DDL = """
     CREATE TABLE IF NOT EXISTS host_groups (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        name        TEXT    NOT NULL DEFAULT '',
-        description TEXT    NOT NULL DEFAULT '',
-        policy_ids  TEXT    NOT NULL DEFAULT '',
-        enabled     INTEGER NOT NULL DEFAULT 1
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        name         TEXT    NOT NULL DEFAULT '',
+        description  TEXT    NOT NULL DEFAULT '',
+        policy_ids   TEXT    NOT NULL DEFAULT '',
+        mirror_repos TEXT    NOT NULL DEFAULT '',
+        enabled      INTEGER NOT NULL DEFAULT 1
     )"""
 
-register_table(_KEY, _DDL, list_fields=["policy_ids"])
+register_table(_KEY, _DDL, list_fields=["policy_ids", "mirror_repos"])
 
 from astrapi_core.ui.controls import Col, ContentTable  # noqa: E402
 from astrapi_core.ui.field_resolver import register_options_fetcher as _reg  # noqa: E402

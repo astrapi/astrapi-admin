@@ -23,3 +23,11 @@ fields:
     column: 1
     row: 3
     colspan: 2
+
+  - name: mirror_repos
+    type: multiselect
+    label: Mirror-Quellen (Debian)
+    options_endpoint: /api/hosts/mirror-repos-for-select
+    column: 1
+    row: 4
+    colspan: 2

@@ -7,14 +7,25 @@ from astrapi_core.ui.htmx_crud_router import make_htmx_crud_router
 from astrapi_core.ui.store import SqliteTableStore
 
 from astrapi_admin.modules.hosts import mirror_client
+from astrapi_admin.modules.hosts import mirror_repos as mirror_repos_mod
 
 KEY = "hosts"
 _DIR = Path(__file__).parent.parent
 store = SqliteTableStore(KEY)
 
 
-def _resolve_fields(fields: list) -> list:
-    return resolve_options_endpoint(fields)
+def _resolve_fields(fields: list, item: dict | None = None) -> list:
+    resolved = resolve_options_endpoint(fields)
+    if item:
+        locked = mirror_repos_mod.group_mirror_repos(item)
+        if locked:
+            for f in resolved:
+                if f.get("name") != "mirror_repos":
+                    continue
+                for opt in f.get("options") or []:
+                    if opt["value"] in locked:
+                        opt["locked"] = True
+    return resolved
 
 
 def _resolve_labels(item_id: str, item: dict) -> dict:

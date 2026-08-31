@@ -3,10 +3,26 @@
 config_files-Eintraege auf -- bewusst NICHT Teil von
 policies/engine.py::resolve_policy_for_host(): das bleibt reine
 Policy-Merge-Logik, Mirror-Quellen sind ein Host-Attribut (E-005),
-keine Policy-Einstellung."""
+keine Policy-Einstellung.
+
+Gruppen-Vererbung (analog zu group_ids/policy_ids, aber rein additiv --
+zwei Quellen fuer denselben Slug widersprechen sich nie, anders als
+Policy-Inhalte, deshalb keine Tier-/Konfliktlogik noetig)."""
 from astrapi_admin.modules.hosts import mirror_client
 
 _SOURCES_DIR = "/etc/apt/sources.list.d"
+
+
+def group_mirror_repos(host: dict) -> set[str]:
+    """Vereinigung der mirror_repos aller Gruppen, denen der Host angehoert."""
+    from astrapi_admin.modules.host_groups.ui.crud import store as groups_store
+
+    result: set[str] = set()
+    for gid in host.get("group_ids") or []:
+        g = groups_store.get(gid)
+        if g:
+            result.update(g.get("mirror_repos") or [])
+    return result
 
 
 def resolve_mirror_config_files(host: dict, result: dict) -> None:
@@ -29,7 +45,7 @@ def resolve_mirror_config_files(host: dict, result: dict) -> None:
     if (host.get("os_type") or "") != "debian":
         return
 
-    selected = set(host.get("mirror_repos") or [])
+    selected = set(host.get("mirror_repos") or []) | group_mirror_repos(host)
 
     for slug in selected:
         content = mirror_client.fetch_sources_content(slug)

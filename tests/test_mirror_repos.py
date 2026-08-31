@@ -165,3 +165,67 @@ def test_resolve_mirror_config_files_repo_liste_nicht_erreichbar_ueberspringt_cl
             "force": False,
         }
     ]
+
+
+def _create_group(name: str, mirror_repos_: list[str]) -> str:
+    from astrapi_admin.modules.host_groups.ui.crud import store as groups_store
+
+    return groups_store.create(
+        None, {"name": name, "description": "", "policy_ids": [], "mirror_repos": mirror_repos_, "enabled": True}
+    )
+
+
+def test_group_mirror_repos_ohne_gruppen_ist_leer():
+    assert mirror_repos.group_mirror_repos({"group_ids": []}) == set()
+
+
+def test_group_mirror_repos_vereinigt_mehrere_gruppen():
+    g1 = _create_group("g1", ["debian-trixie", "simpsons"])
+    g2 = _create_group("g2", ["simpsons", "nginx"])
+
+    result = mirror_repos.group_mirror_repos({"group_ids": [g1, g2]})
+
+    assert result == {"debian-trixie", "simpsons", "nginx"}
+
+
+def test_group_mirror_repos_geloeschte_gruppe_wird_uebersprungen():
+    assert mirror_repos.group_mirror_repos({"group_ids": ["nie-angelegt"]}) == set()
+
+
+def test_resolve_mirror_config_files_gruppen_geerbter_slug_wird_enforced(monkeypatch):
+    monkeypatch.setattr(mirror_repos.mirror_client, "fetch_sources_content", lambda slug: f"content-{slug}")
+    monkeypatch.setattr(
+        mirror_repos.mirror_client,
+        "list_debian_repos",
+        lambda: [{"value": "simpsons", "label": "simpsons"}],
+    )
+    gid = _create_group("basis", ["simpsons"])
+    host = {"os_type": "debian", "mirror_repos": [], "group_ids": [gid]}
+    result = _result()
+
+    mirror_repos.resolve_mirror_config_files(host, result)
+
+    actions = {cf["path"]: cf["action"] for cf in result["config_files"]}
+    assert actions["/etc/apt/sources.list.d/simpsons.sources"] == "enforce"
+
+
+def test_resolve_mirror_config_files_host_und_gruppe_gleicher_slug_keine_dopplung(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        mirror_repos.mirror_client,
+        "fetch_sources_content",
+        lambda slug: (calls.append(slug), "content")[1],
+    )
+    monkeypatch.setattr(
+        mirror_repos.mirror_client,
+        "list_debian_repos",
+        lambda: [{"value": "simpsons", "label": "simpsons"}],
+    )
+    gid = _create_group("basis", ["simpsons"])
+    host = {"os_type": "debian", "mirror_repos": ["simpsons"], "group_ids": [gid]}
+    result = _result()
+
+    mirror_repos.resolve_mirror_config_files(host, result)
+
+    assert calls == ["simpsons"]
+    assert len(result["config_files"]) == 1
