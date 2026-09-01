@@ -55,6 +55,12 @@ def _create_pre_update_snapshot(host: dict) -> tuple[bool, str]:
     found = proxmox_client.find_lxc_by_hostname(host.get("hostname") or "")
     if found is None:
         return False, "Proxmox-LXC nicht (mehr) gefunden"
+    if proxmox_client.is_vzdump_running(found["node"], found["vmid"]):
+        # E-010: Koordination mit astrapi-backups proxmox_lxc-Modul --
+        # ein Snapshot-Versuch waehrend eines laufenden vzdump wuerde bei
+        # Proxmox ohnehin an dessen eigener Pro-VMID-Sperre scheitern,
+        # hier aber mit einer klaren Meldung statt einem rohen Lock-Fehler.
+        return False, "Backup läuft gerade auf diesem Host -- bitte später erneut versuchen"
     snapname = f"astrapi-admin-preupdate-{time.strftime('%Y%m%d-%H%M%S')}"
     return proxmox_client.create_snapshot(found["node"], found["vmid"], snapname)
 

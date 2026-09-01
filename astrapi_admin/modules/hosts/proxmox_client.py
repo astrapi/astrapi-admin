@@ -57,6 +57,32 @@ def configured() -> bool:
     return _auth_header() is not None
 
 
+def is_vzdump_running(node: str, vmid: int) -> bool:
+    """Prueft, ob gerade ein vzdump-Backup fuer diese VMID laeuft (E-010
+    -- Koordination mit astrapi-backups proxmox_lxc-Modul, das denselben
+    Proxmox-Cluster fuer LXC-Backups nutzt). Best-effort: False bei
+    jedem Fehler -- ein kurzzeitig nicht erreichbares Proxmox soll das
+    Update nicht dauerhaft blockieren; das eigentliche Sicherheitsnetz
+    ist ohnehin Proxmox' eigene Sperre pro VMID beim tatsaechlichen
+    Snapshot-Versuch."""
+    headers = _auth_header()
+    if headers is None:
+        return False
+    base = _base_url()
+    try:
+        r = httpx.get(
+            f"{base}/api2/json/nodes/{node}/tasks",
+            params={"vmid": vmid, "running": 1, "typefilter": "vzdump"},
+            headers=headers,
+            timeout=_TIMEOUT,
+            verify=_SSL_CONTEXT,
+        )
+        r.raise_for_status()
+        return len(r.json().get("data", [])) > 0
+    except (httpx.HTTPError, ValueError):
+        return False
+
+
 def find_lxc_by_hostname(hostname: str) -> dict | None:
     """Sucht im gesamten Proxmox-Cluster nach einem LXC-Container, dessen
     'name' (bei LXC == der tatsaechliche Hostname im Container, anders

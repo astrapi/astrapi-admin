@@ -236,3 +236,21 @@ def test_post_report_keine_erneute_benachrichtigung_bei_gleicher_anzahl(client):
         )
 
     mock_send.assert_not_called()
+
+
+def test_proxmox_pending_updates_listet_nur_hosts_mit_pending_action(client):
+    """E-010: von astrapi-backup genutzt, um kein Backup zu starten,
+    waehrend hier ein Update laeuft -- bewusst unauthentifiziert."""
+    _create_host(hostname="lxc-a", pending_action="update", proxmox_vmid=105)
+    _create_host(hostname="lxc-b", pending_action="", proxmox_vmid=106)
+    _create_host(hostname="lxc-c", pending_action="update", proxmox_vmid=-1)
+
+    r = client.get("/api/agent/proxmox-pending-updates")
+
+    assert r.status_code == 200
+    assert r.json()["vmids"] == [105]
+
+
+def test_proxmox_pending_updates_leer_ohne_treffer(client):
+    r = client.get("/api/agent/proxmox-pending-updates")
+    assert r.json()["vmids"] == []

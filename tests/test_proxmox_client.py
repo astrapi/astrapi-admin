@@ -157,3 +157,37 @@ def test_create_snapshot_bei_post_fehler_liefert_fehler(monkeypatch):
 
     assert ok is False
     assert detail
+
+
+def test_is_vzdump_running_ohne_konfiguration_liefert_false():
+    assert proxmox_client.is_vzdump_running("pve2", 105) is False
+
+
+def test_is_vzdump_running_true_bei_laufendem_task(monkeypatch):
+    _configure()
+
+    def _fake_get(url, **kw):
+        assert kw["params"] == {"vmid": 105, "running": 1, "typefilter": "vzdump"}
+        return _FakeResponse(json_data={"data": [{"upid": "UPID:pve2:...:vzdump:105:..."}]})
+
+    monkeypatch.setattr(proxmox_client.httpx, "get", _fake_get)
+
+    assert proxmox_client.is_vzdump_running("pve2", 105) is True
+
+
+def test_is_vzdump_running_false_ohne_laufenden_task(monkeypatch):
+    _configure()
+    monkeypatch.setattr(proxmox_client.httpx, "get", lambda url, **kw: _FakeResponse(json_data={"data": []}))
+
+    assert proxmox_client.is_vzdump_running("pve2", 105) is False
+
+
+def test_is_vzdump_running_bei_fehler_liefert_false(monkeypatch):
+    _configure()
+
+    def _raise(url, **kw):
+        raise httpx.ConnectError("kein Netz")
+
+    monkeypatch.setattr(proxmox_client.httpx, "get", _raise)
+
+    assert proxmox_client.is_vzdump_running("pve2", 105) is False

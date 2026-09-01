@@ -209,3 +209,23 @@ def post_report(payload: ReportRequest, host_data=Depends(require_host)):
     )
 
     return {"ok": True}
+
+
+@router.get("/proxmox-pending-updates")
+def proxmox_pending_updates():
+    """Read-only, bewusst UNAUTHENTIFIZIERT (E-010, Nutzerentscheidung
+    2026-09-01: "erstmal offen, im Vault vermerken dass ein Token
+    sinnvoll waere" -- kein Geheimnis wird preisgegeben, nur welche
+    Proxmox-VMIDs gerade ein pending_action=update haben). Genutzt von
+    astrapi-backups proxmox_lxc-Modul, um kein Backup zu starten,
+    waehrend hier ein Update laeuft -- die Rueckrichtung
+    (astrapi_admin.modules.hosts.proxmox_client.is_vzdump_running())
+    prueft entsprechend vor jedem Snapshot-Versuch."""
+    from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
+
+    vmids = [
+        h["proxmox_vmid"]
+        for h in hosts_store.list().values()
+        if h.get("pending_action") == "update" and (h.get("proxmox_vmid") or -1) >= 0
+    ]
+    return {"vmids": vmids}

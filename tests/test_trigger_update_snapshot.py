@@ -107,3 +107,25 @@ def test_host_nicht_gefunden_wirft_404():
         hosts_updates.trigger_update("nicht-vorhanden")
 
     assert exc_info.value.status_code == 404
+
+
+def test_laufendes_vzdump_blockiert_das_update():
+    """E-010: Koordination mit astrapi-backup -- kein Snapshot-Versuch,
+    solange dort gerade ein Backup fuer denselben Container laeuft."""
+    host_id = _create_host(proxmox_vmid=105, snapshot_before_update=True)
+
+    with patch(
+        "astrapi_admin.modules.hosts.proxmox_client.find_lxc_by_hostname",
+        return_value={"vmid": 105, "node": "pve2"},
+    ), patch(
+        "astrapi_admin.modules.hosts.proxmox_client.is_vzdump_running",
+        return_value=True,
+    ), patch(
+        "astrapi_admin.modules.hosts.proxmox_client.create_snapshot",
+    ) as mock_snap:
+        with pytest.raises(HTTPException) as exc_info:
+            hosts_updates.trigger_update(host_id)
+
+    mock_snap.assert_not_called()
+    assert exc_info.value.status_code == 502
+    assert hosts_store.get(host_id)["pending_action"] == ""
