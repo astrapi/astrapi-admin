@@ -27,6 +27,21 @@ class ReportRequest(BaseModel):
     details: dict = {}
 
 
+def _detect_proxmox_vmid(hostname: str) -> int:
+    """Best-effort: sucht beim Pairing/Neu-Verbinden nach einem passenden
+    Proxmox-LXC (E-009) -- ein nicht konfiguriertes/kurz nicht erreichbares
+    Proxmox darf das Pairing selbst nie zum Scheitern bringen, deshalb hier
+    breit try/except statt den Fehler durchzureichen."""
+    try:
+        from astrapi_admin.modules.hosts import proxmox_client
+
+        found = proxmox_client.find_lxc_by_hostname(hostname)
+        return found["vmid"] if found else -1
+    except Exception as e:
+        log.warning("proxmox: LXC-Erkennung für '%s' fehlgeschlagen: %s", hostname, e)
+        return -1
+
+
 @router.post("/pair")
 def pair(payload: PairRequest):
     from astrapi_core.system.activity_log import log_activity
@@ -44,10 +59,15 @@ def pair(payload: PairRequest):
     if existing_host_id is not None:
         # Neu verbinden: nur das Token ersetzen, Gruppen/Policies/Label
         # bleiben unangetastet (siehe hosts/ui/pairing.py::reconnect_dialog).
+        # proxmox_vmid wird trotzdem neu ermittelt -- so bekommen auch vor
+        # E-009 gepairte Bestandshosts (LXC01/LXC02) die Erkennung nachträglich,
+        # ohne eigenen Zusatz-Workflow.
         existing = hosts_store.get(existing_host_id)
         if existing is None:
             raise HTTPException(404, "Host wurde inzwischen gelöscht")
-        hosts_store.update(existing_host_id, {"token_hash": hash_token(host_token)})
+        updates = {"token_hash": hash_token(host_token)}
+        updates["proxmox_vmid"] = _detect_proxmox_vmid(existing.get("hostname") or "")
+        hosts_store.update(existing_host_id, updates)
         log_activity(
             log_type="job",
             module="hosts",
@@ -75,6 +95,7 @@ def pair(payload: PairRequest):
             "last_seen": "",
             "last_report": "",
             "last_status": "",
+            "proxmox_vmid": _detect_proxmox_vmid(hostname),
             "enabled": True,
         },
     )

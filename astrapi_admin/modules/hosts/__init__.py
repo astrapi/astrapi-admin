@@ -22,6 +22,8 @@ _DDL = """
         updates_available  INTEGER NOT NULL DEFAULT -1,
         security_updates_available INTEGER NOT NULL DEFAULT -1,
         updates_checked_at TEXT    NOT NULL DEFAULT '',
+        proxmox_vmid       INTEGER NOT NULL DEFAULT -1,
+        snapshot_before_update INTEGER NOT NULL DEFAULT 1,
         enabled            INTEGER NOT NULL DEFAULT 1
     )"""
 
@@ -80,6 +82,7 @@ module = load_modul(
                 "conflict": {"label": "Konflikt", "cls": "badge-status-warn"},
             }),
             Col.text("updates_available", "Updates", sortable=False),
+            Col.text("proxmox_vmid", "Proxmox", sortable=False),
             Col.text("last_seen", "Zuletzt gesehen"),
         ],
     ),

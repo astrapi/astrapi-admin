@@ -56,8 +56,15 @@ def _resolve_labels(item_id: str, item: dict) -> dict:
     item["updates_available"] = _format_updates_available(
         item.get("updates_available"), item.get("security_updates_available")
     )
+    item["proxmox_vmid"] = _format_proxmox_vmid(item.get("proxmox_vmid"))
 
     return item
+
+
+def _format_proxmox_vmid(value) -> str:
+    if value is None or value < 0:
+        return "kein Proxmox-LXC"
+    return f"VMID {value}"
 
 
 def _format_updates_available(value, security_value=None) -> str:

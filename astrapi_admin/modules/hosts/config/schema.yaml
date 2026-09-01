@@ -50,9 +50,16 @@ fields:
     row: 5
     colspan: 2
 
+  - name: snapshot_before_update
+    type: boolean
+    label: "Snapshot vor Update erstellen (nur bei erkanntem Proxmox-LXC)"
+    default: true
+    column: 1
+    row: 6
+
   - name: enabled
     type: boolean
     label: Aktiviert
     default: true
     column: 1
-    row: 6
+    row: 7

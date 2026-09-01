@@ -9,3 +9,26 @@ fields:
     description: "Für die Mirror-Quellen-Auswahl am Host, z.B. https://mirror.simpsons.lan"
     mono: true
     default: "https://mirror.simpsons.lan"
+
+  - type: section
+    label: Proxmox
+    cols: 1
+
+  - key: proxmox_base_url
+    label: Proxmox-URL
+    type: text
+    description: "Für Snapshot vor Update (E-009), z.B. https://pve.simpsons.lan:8006 -- leer lassen zum Deaktivieren"
+    mono: true
+    default: ""
+
+  - key: proxmox_token_id
+    label: API-Token-ID
+    type: text
+    description: "Format <benutzer>@<realm>!<tokenname>, z.B. root@pam!astrapi-admin"
+    mono: true
+    default: ""
+
+  - key: proxmox_token_secret
+    label: API-Token-Secret
+    type: password
+    description: "Leer lassen, um ein bereits gesetztes Secret zu behalten"
