@@ -188,8 +188,12 @@ def post_report(payload: ReportRequest, host_data=Depends(require_host)):
     if "updates_available" in payload.details:
         updates["updates_available"] = payload.details["updates_available"]
         updates["updates_checked_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        # T-284-ADMIN: Paketnamen (nicht nur die Anzahl) mitspeichern, damit
+        # "Update anstoßen" vor der Freigabe zeigen kann, WAS betroffen ist.
+        updates["updates_package_list"] = payload.details.get("upgradable_packages") or []
         if "security_updates_available" in payload.details:
             updates["security_updates_available"] = payload.details["security_updates_available"]
+            updates["security_updates_package_list"] = payload.details.get("security_upgradable_packages") or []
         _notify_new_updates(host_id, host, payload.details)
     if "update_result" in payload.details:
         # E-007: die angeforderte Aktion wurde versucht (egal ob
@@ -200,13 +204,31 @@ def post_report(payload: ReportRequest, host_data=Depends(require_host)):
 
     hosts_store.update(host_id, updates)
 
-    log_activity(
+    label = host.get("label") or host.get("hostname") or host_id
+    log_id = log_activity(
         log_type="job",
         module="hosts",
         item_id=str(host_id),
-        description=payload.summary or f"Policy-Report von „{host.get('label') or host.get('hostname') or host_id}“",
+        description=payload.summary or f"Policy-Report von „{label}“",
         status=status,
     )
+
+    if "update_result" in payload.details:
+        # T-284-ADMIN: im Log sichtbar machen, WAS ein angestoßenes Update
+        # tatsaechlich veraendert hat -- sonst zeigt der Log-Eintrag nur die
+        # kurze Zusammenfassung ("aktualisiert"/"Update fehlgeschlagen"),
+        # nicht die konkreten Pakete/die rohe apt-/pacman-Ausgabe.
+        from astrapi_core.system.activity_log import append_log_line
+
+        ur = payload.details["update_result"]
+        pkgs = ur.get("packages") or []
+        if pkgs:
+            append_log_line(log_id, f"Aktualisierte Pakete ({len(pkgs)}): " + ", ".join(pkgs))
+        else:
+            append_log_line(log_id, "Update angestoßen, aber keine Pakete betroffen.")
+        for line in (ur.get("detail") or "").splitlines():
+            if line.strip():
+                append_log_line(log_id, line)
 
     return {"ok": True}
 

@@ -10,3 +10,4 @@ card_actions:
     hx_get: /ui/hosts/{item}/trigger-update
     hx_target: body
     hx_swap: beforeend
+  - type: log

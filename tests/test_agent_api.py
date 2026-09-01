@@ -254,3 +254,78 @@ def test_proxmox_pending_updates_listet_nur_hosts_mit_pending_action(client):
 def test_proxmox_pending_updates_leer_ohne_treffer(client):
     r = client.get("/api/agent/proxmox-pending-updates")
     assert r.json()["vmids"] == []
+
+
+def test_post_report_uebernimmt_paketlisten(client):
+    """T-284-ADMIN: die konkreten Paketnamen (nicht nur die Anzahl)
+    werden gespeichert -- Grundlage fuer die Vorschau vor 'Update
+    anstoßen'."""
+    from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
+
+    host_id, token = _create_host()
+
+    client.post(
+        "/api/agent/report",
+        json={
+            "status": "ok",
+            "summary": "keine Änderungen nötig",
+            "details": {
+                "updates_available": 2,
+                "upgradable_packages": ["htop", "libssl3"],
+                "security_updates_available": 1,
+                "security_upgradable_packages": ["libssl3"],
+            },
+        },
+        headers=_auth(token),
+    )
+
+    host = hosts_store.get(host_id)
+    assert host["updates_package_list"] == ["htop", "libssl3"]
+    assert host["security_updates_package_list"] == ["libssl3"]
+
+
+def test_post_report_mit_update_result_haengt_paketliste_ans_log(client):
+    """T-284-ADMIN: nach einem Update soll im Log sichtbar sein, WAS
+    aktualisiert wurde."""
+    host_id, token = _create_host(pending_action="update")
+
+    with patch("astrapi_core.system.activity_log.append_log_line") as mock_append:
+        client.post(
+            "/api/agent/report",
+            json={
+                "status": "ok",
+                "summary": "aktualisiert",
+                "details": {
+                    "updates_available": 0,
+                    "upgradable_packages": [],
+                    "update_result": {"ok": True, "detail": "Setting up htop ...\ndone.", "packages": ["htop"]},
+                },
+            },
+            headers=_auth(token),
+        )
+
+    lines = [c.args[1] for c in mock_append.call_args_list]
+    assert any("htop" in ln and "Aktualisierte Pakete" in ln for ln in lines)
+    assert "Setting up htop ..." in lines
+    assert "done." in lines
+
+
+def test_post_report_update_result_ohne_pakete_meldet_das_explizit(client):
+    host_id, token = _create_host(pending_action="update")
+
+    with patch("astrapi_core.system.activity_log.append_log_line") as mock_append:
+        client.post(
+            "/api/agent/report",
+            json={
+                "status": "error",
+                "summary": "Update fehlgeschlagen",
+                "details": {
+                    "updates_available": 3,
+                    "update_result": {"ok": False, "detail": "network error", "packages": []},
+                },
+            },
+            headers=_auth(token),
+        )
+
+    lines = [c.args[1] for c in mock_append.call_args_list]
+    assert any("keine Pakete betroffen" in ln for ln in lines)

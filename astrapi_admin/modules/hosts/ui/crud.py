@@ -4,7 +4,10 @@ from pathlib import Path
 from astrapi_core.ui.crud_blueprint import make_crud_router
 from astrapi_core.ui.field_resolver import resolve_options_endpoint
 from astrapi_core.ui.htmx_crud_router import make_htmx_crud_router
+from astrapi_core.ui.render import render
 from astrapi_core.ui.store import SqliteTableStore
+from fastapi import Request
+from fastapi.responses import HTMLResponse
 
 from astrapi_admin.modules.hosts import mirror_client
 from astrapi_admin.modules.hosts import mirror_repos as mirror_repos_mod
@@ -102,6 +105,43 @@ def for_select():
 @api_router.get("/mirror-repos-for-select")
 def mirror_repos_for_select():
     return {"options": mirror_client.list_debian_repos()}
+
+
+@api_router.get("/{item_id}/logs", response_class=HTMLResponse)
+def get_logs(item_id: str, request: Request):
+    """Log-Modal (astrapi-core: type: log card_action) -- ein 'Run' ist
+    hier kein langer Job wie bei borg/rsync, sondern ein einzelner
+    Policy-Report. post_report() haengt bei einem echten Update-Versuch
+    zusaetzliche Zeilen (Paketliste + Roh-Ausgabe) an denselben Log-Eintrag
+    an, siehe api/agent.py."""
+    from astrapi_core.system.activity_log import get_log_lines, list_runs_for_item
+
+    runs = list_runs_for_item(KEY, item_id)
+    act_log_id = runs[0]["id"] if runs else None
+    lines = [r["line"] for r in get_log_lines(act_log_id)] if act_log_id else []
+    dates = [{"id": str(r["id"]), "label": r["started_at"] or str(r["id"])} for r in runs]
+    selected = str(act_log_id) if act_log_id else None
+
+    host = store.get(item_id)
+    description = (host.get("label") or host.get("hostname") or item_id) if host else item_id
+
+    return render(request, "dialog_log.html", {
+        "module": KEY,
+        "item_id": item_id,
+        "description": description,
+        "dates": dates,
+        "selected": selected,
+        "lines": lines,
+        "live": False,
+    })
+
+
+@api_router.get("/{item_id}/logs/{log_id}", response_class=HTMLResponse)
+def get_log_by_id(item_id: str, log_id: str, request: Request):
+    from astrapi_core.system.activity_log import get_log_lines
+
+    lines = [r["line"] for r in get_log_lines(int(log_id))] if log_id.isdigit() else []
+    return render(request, "partials/dialogs/log_content.html", {"lines": lines, "date": log_id})
 
 
 router = make_crud_router(

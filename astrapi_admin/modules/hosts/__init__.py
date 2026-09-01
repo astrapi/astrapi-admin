@@ -21,13 +21,22 @@ _DDL = """
         pending_action     TEXT    NOT NULL DEFAULT '',
         updates_available  INTEGER NOT NULL DEFAULT -1,
         security_updates_available INTEGER NOT NULL DEFAULT -1,
+        updates_package_list TEXT NOT NULL DEFAULT '',
+        security_updates_package_list TEXT NOT NULL DEFAULT '',
         updates_checked_at TEXT    NOT NULL DEFAULT '',
         proxmox_vmid       INTEGER NOT NULL DEFAULT -1,
         snapshot_before_update INTEGER NOT NULL DEFAULT 1,
         enabled            INTEGER NOT NULL DEFAULT 1
     )"""
 
-register_table(_KEY, _DDL, list_fields=["group_ids", "policy_ids", "mirror_repos"])
+register_table(
+    _KEY,
+    _DDL,
+    list_fields=[
+        "group_ids", "policy_ids", "mirror_repos",
+        "updates_package_list", "security_updates_package_list",
+    ],
+)
 
 from astrapi_core.modules.notify.engine import register_source  # noqa: E402
 from astrapi_core.ui.controls import Col, ContentTable, Header  # noqa: E402
