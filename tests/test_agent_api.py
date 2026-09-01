@@ -1,8 +1,13 @@
-"""api/agent.py -- Update-Status (E-007): pending_action wird im
-Policy-Abruf sichtbar, ein Report mit update_result setzt es wieder
-zurueck, updates_available/updates_checked_at werden aus dem Report
-uebernommen. Kein Automatismus -- pending_action wird ausschliesslich
-ueber hosts/ui/updates.py::trigger_update() explizit gesetzt."""
+"""api/agent.py -- Update-Status (E-007) + Security-Update-Erkennung/
+Benachrichtigung (E-008): pending_action wird im Policy-Abruf sichtbar,
+ein Report mit update_result setzt es wieder zurueck,
+updates_available/security_updates_available/updates_checked_at werden
+aus dem Report uebernommen, eine gestiegene Update-Anzahl loest (falls
+in astrapi-core::notify konfiguriert) eine Benachrichtigung aus. Kein
+Automatismus -- pending_action wird ausschliesslich ueber
+hosts/ui/updates.py::trigger_update() explizit gesetzt."""
+from unittest.mock import patch
+
 import pytest
 from astrapi_core.system import db
 from fastapi import FastAPI
@@ -145,3 +150,89 @@ def test_post_report_fehlgeschlagenes_update_loescht_pending_action_trotzdem(cli
 
     host = hosts_store.get(host_id)
     assert host["pending_action"] == ""
+
+
+def test_post_report_uebernimmt_security_updates_available(client):
+    from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
+
+    host_id, token = _create_host()
+
+    client.post(
+        "/api/agent/report",
+        json={
+            "status": "ok",
+            "summary": "keine Änderungen nötig",
+            "details": {"updates_available": 5, "security_updates_available": 2},
+        },
+        headers=_auth(token),
+    )
+
+    host = hosts_store.get(host_id)
+    assert host["updates_available"] == 5
+    assert host["security_updates_available"] == 2
+
+
+def test_post_report_ohne_security_feld_laesst_spalte_unangetastet(client):
+    """apt-lose Hosts (Arch/pacman) schicken kein security_updates_available
+    mit -- die Spalte muss dann bei ihrem Default (-1, "nicht anwendbar")
+    bleiben statt faelschlich auf 0 zu fallen."""
+    from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
+
+    host_id, token = _create_host()
+
+    client.post(
+        "/api/agent/report",
+        json={"status": "ok", "summary": "keine Änderungen nötig", "details": {"updates_available": 3}},
+        headers=_auth(token),
+    )
+
+    host = hosts_store.get(host_id)
+    assert host["security_updates_available"] == -1
+
+
+def test_post_report_benachrichtigt_bei_neuen_normalen_updates(client):
+    _host_id, token = _create_host(updates_available=0)
+
+    with patch("astrapi_core.modules.notify.engine._engine.send") as mock_send:
+        client.post(
+            "/api/agent/report",
+            json={"status": "ok", "summary": "keine Änderungen nötig", "details": {"updates_available": 3}},
+            headers=_auth(token),
+        )
+
+    mock_send.assert_called_once()
+    assert mock_send.call_args.kwargs["event"] == "info"
+    assert mock_send.call_args.kwargs["source"] == "hosts"
+
+
+def test_post_report_benachrichtigt_als_warning_bei_security_updates(client):
+    _host_id, token = _create_host(updates_available=0, security_updates_available=0)
+
+    with patch("astrapi_core.modules.notify.engine._engine.send") as mock_send:
+        client.post(
+            "/api/agent/report",
+            json={
+                "status": "ok",
+                "summary": "keine Änderungen nötig",
+                "details": {"updates_available": 5, "security_updates_available": 2},
+            },
+            headers=_auth(token),
+        )
+
+    mock_send.assert_called_once()
+    assert mock_send.call_args.kwargs["event"] == "warning"
+
+
+def test_post_report_keine_erneute_benachrichtigung_bei_gleicher_anzahl(client):
+    """Sonst wuerde bei jedem 15-Minuten-Zyklus dieselbe unveraenderte
+    Zahl erneut gemeldet."""
+    _host_id, token = _create_host(updates_available=3)
+
+    with patch("astrapi_core.modules.notify.engine._engine.send") as mock_send:
+        client.post(
+            "/api/agent/report",
+            json={"status": "ok", "summary": "keine Änderungen nötig", "details": {"updates_available": 3}},
+            headers=_auth(token),
+        )
+
+    mock_send.assert_not_called()

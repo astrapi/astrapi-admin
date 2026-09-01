@@ -53,17 +53,25 @@ def _resolve_labels(item_id: str, item: dict) -> dict:
     policy_labels = {opt["value"]: opt["label"] for opt in policies_for_select()}
     item["policy_ids"] = [policy_labels.get(pid, pid) for pid in (item.get("policy_ids") or [])]
 
-    item["updates_available"] = _format_updates_available(item.get("updates_available"))
+    item["updates_available"] = _format_updates_available(
+        item.get("updates_available"), item.get("security_updates_available")
+    )
 
     return item
 
 
-def _format_updates_available(value) -> str:
+def _format_updates_available(value, security_value=None) -> str:
+    """security_value ist nur bei Debian-Hosts gesetzt (>= 0, siehe E-008)
+    -- bei Arch (immer -1, checkupdates kennt keine Security-Kategorie)
+    bleibt es unerwaehnt statt "0 sicherheitsrelevant" vorzutaeuschen."""
     if value is None or value < 0:
         return "noch nicht geprüft"
     if value == 0:
         return "aktuell"
-    return f"{value} Update{'s' if value != 1 else ''}"
+    base = f"{value} Update{'s' if value != 1 else ''}"
+    if security_value is not None and security_value > 0:
+        base += f" ({security_value} sicherheitsrelevant)"
+    return base
 
 
 api_router = make_htmx_crud_router(

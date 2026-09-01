@@ -20,14 +20,21 @@ _DDL = """
         last_status        TEXT    NOT NULL DEFAULT '',
         pending_action     TEXT    NOT NULL DEFAULT '',
         updates_available  INTEGER NOT NULL DEFAULT -1,
+        security_updates_available INTEGER NOT NULL DEFAULT -1,
         updates_checked_at TEXT    NOT NULL DEFAULT '',
         enabled            INTEGER NOT NULL DEFAULT 1
     )"""
 
 register_table(_KEY, _DDL, list_fields=["group_ids", "policy_ids", "mirror_repos"])
 
+from astrapi_core.modules.notify.engine import register_source  # noqa: E402
 from astrapi_core.ui.controls import Col, ContentTable, Header  # noqa: E402
 from astrapi_core.ui.field_resolver import register_options_fetcher as _reg  # noqa: E402
+
+# Fuer die Quellen-Filterung in der Notify-Job-Konfiguration (E-008) --
+# ohne Registrierung waere "hosts" dort nicht als Option waehlbar, siehe
+# astrapi_core.modules.notify.engine-Docstring.
+register_source(_KEY, "Hosts")
 
 from astrapi_admin.modules.hosts import mirror_client  # noqa: E402
 from astrapi_admin.modules.hosts.ui import pairing as _pairing  # noqa: E402,F401 – registriert Routen auf ui_router

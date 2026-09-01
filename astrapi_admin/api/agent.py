@@ -109,6 +109,44 @@ def get_policy(host_data=Depends(require_host)):
     return result
 
 
+def _notify_new_updates(host_id, host: dict, details: dict) -> None:
+    """Benachrichtigt (falls in astrapi-core::notify konfiguriert) nur
+    wenn sich die gemeldete Update-Anzahl gegenueber dem zuletzt
+    bekannten Stand ERHOEHT hat (E-008) -- sonst wuerde bei jedem
+    15-Minuten-Zyklus dieselbe unveraenderte Zahl erneut gemeldet.
+    Sicherheitsrelevante Updates gehen als WARNING raus (hoehere
+    Prioritaet, siehe notify.engine._PRIORITY_MAP), rein normale als
+    INFO -- pro Report nur eine der beiden, nicht beide gleichzeitig
+    (WARNING schliesst den Normalfall bereits mit ein)."""
+    label = host.get("label") or host.get("hostname") or str(host_id)
+    new_total = details.get("updates_available", 0)
+    new_security = details.get("security_updates_available")
+    old_total = host.get("updates_available", -1)
+    old_security = host.get("security_updates_available", -1)
+
+    try:
+        from astrapi_core.modules.notify import engine as notify_engine
+
+        if new_security is not None and new_security > 0 and new_security > max(old_security, 0):
+            notify_engine.send(
+                title=f"{label}: sicherheitsrelevante Updates verfügbar",
+                message=f"{new_security} von {new_total} verfügbaren Updates sind sicherheitsrelevant.",
+                event=notify_engine.WARNING,
+                source="hosts",
+                tags=["update", "security"],
+            )
+        elif new_total > 0 and new_total > max(old_total, 0):
+            notify_engine.send(
+                title=f"{label}: Updates verfügbar",
+                message=f"{new_total} Update{'s' if new_total != 1 else ''} verfügbar.",
+                event=notify_engine.INFO,
+                source="hosts",
+                tags=["update"],
+            )
+    except Exception as e:
+        log.warning("notify: Benachrichtigung für Update-Status fehlgeschlagen (Host %s): %s", host_id, e)
+
+
 @router.post("/report")
 def post_report(payload: ReportRequest, host_data=Depends(require_host)):
     import json
@@ -129,6 +167,9 @@ def post_report(payload: ReportRequest, host_data=Depends(require_host)):
     if "updates_available" in payload.details:
         updates["updates_available"] = payload.details["updates_available"]
         updates["updates_checked_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        if "security_updates_available" in payload.details:
+            updates["security_updates_available"] = payload.details["security_updates_available"]
+        _notify_new_updates(host_id, host, payload.details)
     if "update_result" in payload.details:
         # E-007: die angeforderte Aktion wurde versucht (egal ob
         # erfolgreich) -- pending_action zuruecksetzen, sonst bliebe ein
