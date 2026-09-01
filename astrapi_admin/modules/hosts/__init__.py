@@ -7,18 +7,21 @@ _KEY = Path(__file__).parent.name
 
 _DDL = """
     CREATE TABLE IF NOT EXISTS hosts (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        hostname    TEXT    NOT NULL DEFAULT '',
-        label       TEXT    NOT NULL DEFAULT '',
-        os_type     TEXT    NOT NULL DEFAULT '',
-        group_ids   TEXT    NOT NULL DEFAULT '',
-        policy_ids  TEXT    NOT NULL DEFAULT '',
-        mirror_repos TEXT   NOT NULL DEFAULT '',
-        token_hash  TEXT    NOT NULL DEFAULT '',
-        last_seen   TEXT    NOT NULL DEFAULT '',
-        last_report TEXT    NOT NULL DEFAULT '',
-        last_status TEXT    NOT NULL DEFAULT '',
-        enabled     INTEGER NOT NULL DEFAULT 1
+        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+        hostname           TEXT    NOT NULL DEFAULT '',
+        label              TEXT    NOT NULL DEFAULT '',
+        os_type            TEXT    NOT NULL DEFAULT '',
+        group_ids          TEXT    NOT NULL DEFAULT '',
+        policy_ids         TEXT    NOT NULL DEFAULT '',
+        mirror_repos       TEXT    NOT NULL DEFAULT '',
+        token_hash         TEXT    NOT NULL DEFAULT '',
+        last_seen          TEXT    NOT NULL DEFAULT '',
+        last_report        TEXT    NOT NULL DEFAULT '',
+        last_status        TEXT    NOT NULL DEFAULT '',
+        pending_action     TEXT    NOT NULL DEFAULT '',
+        updates_available  INTEGER NOT NULL DEFAULT -1,
+        updates_checked_at TEXT    NOT NULL DEFAULT '',
+        enabled            INTEGER NOT NULL DEFAULT 1
     )"""
 
 register_table(_KEY, _DDL, list_fields=["group_ids", "policy_ids", "mirror_repos"])
@@ -28,6 +31,7 @@ from astrapi_core.ui.field_resolver import register_options_fetcher as _reg  # n
 
 from astrapi_admin.modules.hosts import mirror_client  # noqa: E402
 from astrapi_admin.modules.hosts.ui import pairing as _pairing  # noqa: E402,F401 – registriert Routen auf ui_router
+from astrapi_admin.modules.hosts.ui import updates as _updates  # noqa: E402,F401 – registriert Routen auf ui_router
 from astrapi_admin.modules.hosts.ui.crud import api_router as router  # noqa: E402
 from astrapi_admin.modules.hosts.ui.crud import router as ui_router  # noqa: E402
 
@@ -68,7 +72,17 @@ module = load_modul(
                 "error":    {"label": "Fehler", "cls": "badge-status-err"},
                 "conflict": {"label": "Konflikt", "cls": "badge-status-warn"},
             }),
+            Col.text("updates_available", "Updates", sortable=False),
             Col.text("last_seen", "Zuletzt gesehen"),
+        ],
+        card_actions=[
+            {
+                "title": "Update anstoßen",
+                "icon": "refresh",
+                "hx_get": "/ui/hosts/{item}/trigger-update",
+                "hx_target": "body",
+                "hx_swap": "beforeend",
+            },
         ],
     ),
 )

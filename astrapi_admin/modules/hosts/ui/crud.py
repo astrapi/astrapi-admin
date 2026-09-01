@@ -53,7 +53,17 @@ def _resolve_labels(item_id: str, item: dict) -> dict:
     policy_labels = {opt["value"]: opt["label"] for opt in policies_for_select()}
     item["policy_ids"] = [policy_labels.get(pid, pid) for pid in (item.get("policy_ids") or [])]
 
+    item["updates_available"] = _format_updates_available(item.get("updates_available"))
+
     return item
+
+
+def _format_updates_available(value) -> str:
+    if value is None or value < 0:
+        return "noch nicht geprüft"
+    if value == 0:
+        return "aktuell"
+    return f"{value} Update{'s' if value != 1 else ''}"
 
 
 api_router = make_htmx_crud_router(

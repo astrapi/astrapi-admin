@@ -102,6 +102,10 @@ def get_policy(host_data=Depends(require_host)):
     _host_id, host = host_data
     result = resolve_policy_for_host(host)
     resolve_mirror_config_files(host, result)
+    # E-007: rein informativ fuer den Agenten, welche einmalige Aktion
+    # der Admin explizit angefordert hat (aktuell nur "update") -- NICHT
+    # automatisch/Policy-getrieben, siehe hosts/ui/updates.py.
+    result["pending_action"] = host.get("pending_action") or ""
     return result
 
 
@@ -116,13 +120,23 @@ def post_report(payload: ReportRequest, host_data=Depends(require_host)):
     host_id, host = host_data
     status = payload.status if payload.status in _REPORT_STATUSES else "error"
 
-    hosts_store.update(
-        host_id,
-        {
-            "last_report": json.dumps({"status": status, "summary": payload.summary, "details": payload.details}),
-            "last_status": status,
-        },
-    )
+    import time
+
+    updates = {
+        "last_report": json.dumps({"status": status, "summary": payload.summary, "details": payload.details}),
+        "last_status": status,
+    }
+    if "updates_available" in payload.details:
+        updates["updates_available"] = payload.details["updates_available"]
+        updates["updates_checked_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    if "update_result" in payload.details:
+        # E-007: die angeforderte Aktion wurde versucht (egal ob
+        # erfolgreich) -- pending_action zuruecksetzen, sonst bliebe ein
+        # fehlgeschlagenes Update fuer immer "pending" und wuerde bei
+        # jedem Zyklus stumpf wiederholt.
+        updates["pending_action"] = ""
+
+    hosts_store.update(host_id, updates)
 
     log_activity(
         log_type="job",
