@@ -5,3 +5,8 @@ nav_default: true
 card_actions:
   - type: reconnect
     url: /ui/hosts/{item}/reconnect
+  - title: Update anstoßen
+    icon: refresh
+    hx_get: /ui/hosts/{item}/trigger-update
+    hx_target: body
+    hx_swap: beforeend

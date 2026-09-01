@@ -75,14 +75,5 @@ module = load_modul(
             Col.text("updates_available", "Updates", sortable=False),
             Col.text("last_seen", "Zuletzt gesehen"),
         ],
-        card_actions=[
-            {
-                "title": "Update anstoßen",
-                "icon": "refresh",
-                "hx_get": "/ui/hosts/{item}/trigger-update",
-                "hx_target": "body",
-                "hx_swap": "beforeend",
-            },
-        ],
     ),
 )
