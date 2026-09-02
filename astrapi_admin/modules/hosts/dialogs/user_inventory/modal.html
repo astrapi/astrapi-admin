@@ -10,7 +10,7 @@
 {% extends "dialog_core.html" %}
 {% import 'partials/components/ui_macros.html' as ui %}
 
-{% block dialog_width %}640{% endblock %}
+{% block dialog_width %}800{% endblock %}
 {% block dialog_title %}Nutzer – {{ description }}{% endblock %}
 
 {% block dialog_body %}
@@ -37,26 +37,26 @@
     </div>
     {% endif %}
     <div style="overflow-x:auto;">
-      <table class="ds-list-table" style="width:100%;">
+      <table class="ds-list-table" style="width:100%; table-layout:auto;">
         <thead>
           <tr>
-            <th>Username</th>
-            <th>UID</th>
-            <th>Shell</th>
-            <th>sudo/wheel</th>
-            <th>SSH-Key</th>
-            <th>Verwaltet</th>
+            <th style="white-space:nowrap;">Username</th>
+            <th style="white-space:nowrap;">UID</th>
+            <th style="white-space:nowrap;">Shell</th>
+            <th style="white-space:nowrap;">sudo/wheel</th>
+            <th style="white-space:nowrap;">SSH-Key</th>
+            <th style="white-space:nowrap;">Verwaltet</th>
           </tr>
         </thead>
         <tbody>
           {% for u in inventory %}
           <tr class="{{ 'off' if u.hidden_by_filter else 'on' }}" {% if u.hidden_by_filter %}x-show="showHidden"{% endif %}>
-            <td class="col-mono" style="font-weight:600;">{{ u.username }}</td>
-            <td class="col-mono">{{ u.uid }}</td>
-            <td class="col-mono">{{ u.shell }}</td>
-            <td>{% if u.sudo %}<span class="badge-pill badge-status-warn">sudo</span>{% else %}—{% endif %}</td>
-            <td>{% if u.has_ssh_keys %}<span class="badge-pill badge-status-ok">Key</span>{% else %}—{% endif %}</td>
-            <td>{% if u.managed %}<span class="badge-pill badge-blue">astrapi-admin</span>{% else %}—{% endif %}</td>
+            <td class="col-mono" style="font-weight:600; white-space:nowrap;">{{ u.username }}</td>
+            <td class="col-mono" style="white-space:nowrap;">{{ u.uid }}</td>
+            <td class="col-mono" style="white-space:nowrap;">{{ u.shell }}</td>
+            <td style="white-space:nowrap;">{% if u.sudo %}<span class="badge-pill badge-status-warn">sudo</span>{% else %}—{% endif %}</td>
+            <td style="white-space:nowrap;">{% if u.has_ssh_keys %}<span class="badge-pill badge-status-ok">Key</span>{% else %}—{% endif %}</td>
+            <td style="white-space:nowrap;">{% if u.managed %}<span class="badge-pill badge-blue">astrapi-admin</span>{% else %}—{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
