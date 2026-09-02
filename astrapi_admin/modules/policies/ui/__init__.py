@@ -3,6 +3,8 @@
 statt generischem crud_blueprint (analog zum Haeufigkeit-Picker im
 scheduler-Modul), weil Pakete/Config-Dateien/Services jeweils eigene
 Tabellen-/Listen-Widgets brauchen, kein simples Formularfeld-Set."""
+import json
+import re
 import uuid
 
 from astrapi_core.system.secrets import get_secret_safe, set_secret
@@ -34,6 +36,12 @@ policies_table = ContentTable(
 
 def _lines(text: str) -> list[str]:
     return [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+
+
+def _slug(text: str) -> str:
+    """Dateiname-tauglicher Kurzname fuer den Export-Download."""
+    text = re.sub(r"[^a-zA-Z0-9_-]+", "-", (text or "").strip().lower()).strip("-")
+    return text or "policy"
 
 
 def _summary(p: dict) -> str:
@@ -130,6 +138,72 @@ def policies_edit(policy_id: str, request: Request):
         f"{KEY}/dialogs/edit/modal.html",
         dict(policy=policy, error=None),
     )
+
+
+@router.get(f"/ui/{KEY}/{{policy_id}}/export")
+def policies_export(policy_id: str):
+    """Reiner Download-Link (kein HTMX) -- liefert das rohe, gespeicherte
+    Policy-JSON. Enthaelt nie Klartext-Geheimnisse: secret=true-Eintraege
+    haben ihr 'content'-Feld im Storage ohnehin immer leer (siehe
+    _parse_form() -- der eigentliche Wert liegt getrennt im Secrets-Store,
+    ausserhalb dieses Exports). Keine Host-/Gruppen-Zuweisung enthalten,
+    die lebt getrennt bei hosts/host_groups."""
+    policy = engine.get_policy(policy_id)
+    if policy is None:
+        return Response(status_code=404)
+    filename = f"policy-{_slug(policy.get('name') or policy_id)}.json"
+    return Response(
+        content=json.dumps(policy, indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(f"/ui/{KEY}/import", response_class=HTMLResponse)
+def policies_import_modal(request: Request):
+    return render(request, f"{KEY}/dialogs/import/modal.html", dict(error=None, raw=None))
+
+
+@router.post(f"/ui/{KEY}/import-preview", response_class=HTMLResponse)
+async def policies_import_preview(request: Request):
+    """Legt NICHTS an -- parst nur das eingefuegte JSON und uebergibt es an
+    den bestehenden Edit-Dialog (id=None -> is_new, geht beim Absenden
+    ueber den normalen policies_create()-Pfad). So bekommt der Nutzer vor
+    dem eigentlichen Anlegen noch die Chance, Geheimnisse neu einzutragen
+    (die der Export nie enthaelt) und Werte zu pruefen/anzupassen."""
+    form = await request.form()
+    raw = (form.get("import_json") or "").strip()
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return render(
+            request,
+            f"{KEY}/dialogs/import/modal.html",
+            dict(error="Kein gültiges JSON.", raw=raw),
+            status_code=422,
+        )
+    if not isinstance(data, dict) or not (data.get("name") or "").strip():
+        return render(
+            request,
+            f"{KEY}/dialogs/import/modal.html",
+            dict(error="JSON enthält kein (nicht-leeres) 'name'-Feld.", raw=raw),
+            status_code=422,
+        )
+
+    def _as_list(value) -> list:
+        return value if isinstance(value, list) else []
+
+    policy = {
+        "id": None,
+        "name": data.get("name", ""),
+        "description": data.get("description", ""),
+        "enabled": bool(data.get("enabled", True)),
+        "packages_arch": _as_list(data.get("packages_arch")),
+        "packages_debian": _as_list(data.get("packages_debian")),
+        "config_files": _as_list(data.get("config_files")),
+        "services": _as_list(data.get("services")),
+    }
+    return render(request, f"{KEY}/dialogs/edit/modal.html", dict(policy=policy, error=None))
 
 
 @router.get(f"/ui/{KEY}/{{policy_id}}/delete", response_class=HTMLResponse)

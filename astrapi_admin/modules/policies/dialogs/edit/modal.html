@@ -12,6 +12,13 @@
 
 {% block dialog_width %}720{% endblock %}
 {% block dialog_title %}{{ 'Policy bearbeiten' if not is_new else 'Neue Policy' }}{% endblock %}
+{% block dialog_header_extra %}
+{% if not is_new %}
+<a href="/ui/policies/{{ policy.id }}/export" class="btn-icon" title="Als JSON exportieren" style="margin-right:4px;">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-download"></use></svg>
+</a>
+{% endif %}
+{% endblock %}
 {% block form_id %}policy-form{% endblock %}
 {% block form_action %}{% if is_new %}/ui/policies/{% else %}/ui/policies/{{ policy.id }}/update{% endif %}{% endblock %}
 {% block form_style %}display:flex; flex-direction:column; gap:16px;{% endblock %}
