@@ -26,7 +26,7 @@ policies_table = ContentTable(
     has_run_buttons=False,
     has_toggle=True,
     columns=[
-        Col.trunc("description", "Beschreibung"),
+        Col.trunc("description_text", "Beschreibung"),
         Col.text("summary", "Umfang", sortable=False),
     ],
 )
@@ -62,11 +62,31 @@ def _with_secret_status(policy_id: str, config_files: list[dict]) -> list[dict]:
     return out
 
 
+def _list_item(pid: str, p: dict) -> dict:
+    """list_wrapper_inner.html rendert die NAME-Spalte immer fest aus
+    item_data.description (oder .job/.host/item_name) -- Policies haben
+    aber ein EIGENES, eigentlich massgebliches 'name'-Feld (Pflichtfeld
+    beim Anlegen) UND ein separates, optionales 'description'-Feld fuer
+    Fliesstext. Ohne diese Auflösung kollidieren beide: die NAME-Spalte
+    zeigte bisher entweder die rohe Policy-ID (description leer) oder
+    versehentlich den Beschreibungstext statt des Namens (description
+    gesetzt) -- so beim 'caddy'-Eintrag beobachtet. 'description_text'
+    ist ein neuer, kollisionsfreier Schluessel eigens fuer die
+    Beschreibung-SPALTE (Col.trunc), waehrend 'description' jetzt den
+    Policy-Namen fuers eingebaute NAME-Feld traegt."""
+    return {
+        **p,
+        "summary": _summary(p),
+        "description_text": p.get("description") or "—",
+        "description": p.get("name") or pid,
+    }
+
+
 def _list_ctx() -> dict:
     policies = engine.list_policies()
     return {
         "module": KEY,
-        "cfg": {pid: {**p, "summary": _summary(p)} for pid, p in policies.items()},
+        "cfg": {pid: _list_item(pid, p) for pid, p in policies.items()},
         "container_id": _C_ID,
         "loading_id": _L_ID,
     }
