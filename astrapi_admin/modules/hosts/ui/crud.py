@@ -39,6 +39,24 @@ def _resolve_fields(fields: list, item: dict | None = None) -> list:
         for opt in f.get("options") or []:
             if opt["value"] in locked:
                 opt["locked"] = True
+
+    # snapshot_before_update ist nur bei einem erkannten Proxmox-LXC
+    # ueberhaupt wirksam (siehe hosts/ui/updates.py -- der Trigger prueft
+    # zusaetzlich proxmox_vmid >= 0). Ohne Proxmox-Zuordnung blenden wir
+    # das Feld ganz aus, statt einen wirkungslosen Schalter zu zeigen.
+    # Nutzerwunsch (2026-09-02): "wenn ich einen LXC habe der kein
+    # Proxmox-LXC ist, kann das Toggle Snapshot entfallen".
+    #
+    # Bewusst KEIN Filtern von schema["fields"] selbst (crud_blueprint.py
+    # liest das beim Speichern separat, unabhaengig von dieser Funktion)
+    # -- das Feld bleibt beim Speichern also weiterhin Teil der Form-
+    # Verarbeitung und wird dabei stumpf auf False geschrieben (fehlender
+    # Toggle heisst "aus"). Das ist hier folgenlos: der einzige Lesezugriff
+    # auf snapshot_before_update prueft IMMER zusaetzlich proxmox_vmid >= 0,
+    # der gespeicherte Wert wird fuer diese Hosts also nie ausgewertet.
+    if (item.get("proxmox_vmid") if item.get("proxmox_vmid") is not None else -1) < 0:
+        resolved = [f for f in resolved if f.get("name") != "snapshot_before_update"]
+
     return resolved
 
 

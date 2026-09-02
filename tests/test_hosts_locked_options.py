@@ -93,3 +93,39 @@ def test_resolve_fields_direkt_zugewiesene_policy_wird_nicht_gesperrt(monkeypatc
     policy_field = next(f for f in resolved if f["name"] == "policy_ids")
     opts = {o["value"]: o for o in policy_field["options"]}
     assert "locked" not in opts["p1"]
+
+
+def _fields_with_snapshot_toggle():
+    return _fields() + [{"name": "snapshot_before_update", "type": "boolean"}]
+
+
+def test_resolve_fields_blendet_snapshot_toggle_ohne_proxmox_aus(monkeypatch):
+    """T-287-ADMIN: das Toggle ist ohne erkannten Proxmox-LXC wirkungslos
+    (trigger_update() prueft immer zusaetzlich proxmox_vmid >= 0) --
+    wird deshalb gar nicht erst angezeigt."""
+    monkeypatch.setattr(mirror_client, "list_debian_repos", lambda: [])
+    item = {"group_ids": [], "proxmox_vmid": -1}
+
+    resolved = hosts_crud._resolve_fields(_fields_with_snapshot_toggle(), item)
+
+    assert not any(f["name"] == "snapshot_before_update" for f in resolved)
+
+
+def test_resolve_fields_zeigt_snapshot_toggle_mit_proxmox(monkeypatch):
+    monkeypatch.setattr(mirror_client, "list_debian_repos", lambda: [])
+    item = {"group_ids": [], "proxmox_vmid": 105}
+
+    resolved = hosts_crud._resolve_fields(_fields_with_snapshot_toggle(), item)
+
+    assert any(f["name"] == "snapshot_before_update" for f in resolved)
+
+
+def test_resolve_fields_zeigt_snapshot_toggle_ohne_proxmox_vmid_feld(monkeypatch):
+    """Fehlt proxmox_vmid ganz (aeltere/gerade erst angelegte Datensaetze),
+    gilt derselbe Default wie beim DB-Feld selbst: -1, also ausgeblendet."""
+    monkeypatch.setattr(mirror_client, "list_debian_repos", lambda: [])
+    item = {"group_ids": []}
+
+    resolved = hosts_crud._resolve_fields(_fields_with_snapshot_toggle(), item)
+
+    assert not any(f["name"] == "snapshot_before_update" for f in resolved)
