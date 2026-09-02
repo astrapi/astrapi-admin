@@ -1,6 +1,9 @@
-"""hosts/ui/updates.py::_describe_pending_packages()/trigger_update_dialog()
+"""hosts/ui/updates.py::_pending_packages_list()/trigger_update_dialog()
 -- T-284-ADMIN: vor der Freigabe zeigen, welche Pakete ein Update
-betreffen wuerde, nicht nur die Anzahl."""
+betreffen wuerde, als scrollbare Liste (nicht im Fliesstext) und ohne
+den unnoetigen "wie wird aktualisiert"-Hinweis (Nutzer-Feedback
+2026-09-02: "die gefundenen Updates sollten in einer scrollbaren Liste
+stehen, und der Hinweis wie ich updaten kann ist unnötig")."""
 from unittest.mock import patch
 
 import pytest
@@ -17,28 +20,29 @@ def _isolated_db(tmp_path):
     yield
 
 
-def test_describe_pending_packages_ohne_bekannte_updates():
-    assert "Keine bekannten ausstehenden Updates" in hosts_updates._describe_pending_packages({})
+def test_pending_packages_list_ohne_bekannte_updates():
+    items_list, items_label = hosts_updates._pending_packages_list({})
+    assert items_list is None
+    assert items_label is None
 
 
-def test_describe_pending_packages_markiert_security_pakete():
+def test_pending_packages_list_markiert_security_pakete():
     host = {
         "updates_package_list": ["htop", "libssl3"],
         "security_updates_package_list": ["libssl3"],
     }
-    text = hosts_updates._describe_pending_packages(host)
-    assert "2 Updates betroffen" in text
-    assert "htop" in text
-    assert "libssl3 (sicherheitsrelevant)" in text
+    items_list, items_label = hosts_updates._pending_packages_list(host)
+    assert items_list == ["htop", "libssl3 (sicherheitsrelevant)"]
+    assert items_label == "2 Updates betroffen:"
 
 
-def test_describe_pending_packages_kappt_lange_listen():
+def test_pending_packages_list_enthaelt_alle_eintraege_ohne_kappung():
+    """Die Liste ist jetzt scrollbar -- keine Kappung mehr noetig."""
     host = {"updates_package_list": [f"pkg{i}" for i in range(15)], "security_updates_package_list": []}
-    text = hosts_updates._describe_pending_packages(host)
-    assert "15 Updates betroffen" in text
-    assert "und 5 weitere" in text
-    assert "pkg9" in text
-    assert "pkg14" not in text
+    items_list, items_label = hosts_updates._pending_packages_list(host)
+    assert len(items_list) == 15
+    assert "pkg14" in items_list
+    assert items_label == "15 Updates betroffen:"
 
 
 def _create_host(**overrides) -> str:
@@ -60,13 +64,45 @@ def _create_host(**overrides) -> str:
     return str(hosts_store.create(None, values))
 
 
-def test_trigger_update_dialog_zeigt_paketliste_in_der_beschreibung():
+def test_trigger_update_dialog_uebergibt_paketliste_separat():
     host_id = _create_host(updates_package_list=["caddy", "tzdata"], security_updates_package_list=[])
 
     with patch("astrapi_admin.modules.hosts.ui.updates.render") as mock_render:
         hosts_updates.trigger_update_dialog(host_id, request=None)
 
     ctx = mock_render.call_args[0][2]
-    assert "caddy" in ctx["description"]
-    assert "tzdata" in ctx["description"]
-    assert "2 Updates betroffen" in ctx["description"]
+    assert ctx["items_list"] == ["caddy", "tzdata"]
+    assert ctx["items_label"] == "2 Updates betroffen:"
+
+
+def test_trigger_update_dialog_beschreibung_enthaelt_keinen_wie_hinweis():
+    host_id = _create_host(updates_package_list=["caddy"], security_updates_package_list=[])
+
+    with patch("astrapi_admin.modules.hosts.ui.updates.render") as mock_render:
+        hosts_updates.trigger_update_dialog(host_id, request=None)
+
+    ctx = mock_render.call_args[0][2]
+    assert "apt upgrade" not in ctx["description"]
+    assert "pacman" not in ctx["description"]
+    assert ctx["description"] == "lxc99"
+
+
+def test_trigger_update_dialog_ohne_bekannte_updates_zeigt_hinweis_in_beschreibung():
+    host_id = _create_host()
+
+    with patch("astrapi_admin.modules.hosts.ui.updates.render") as mock_render:
+        hosts_updates.trigger_update_dialog(host_id, request=None)
+
+    ctx = mock_render.call_args[0][2]
+    assert ctx["items_list"] is None
+    assert "keine bekannten ausstehenden Updates" in ctx["description"]
+
+
+def test_trigger_update_dialog_snapshot_hinweis_bleibt_erhalten():
+    host_id = _create_host(proxmox_vmid=105, snapshot_before_update=True)
+
+    with patch("astrapi_admin.modules.hosts.ui.updates.render") as mock_render:
+        hosts_updates.trigger_update_dialog(host_id, request=None)
+
+    ctx = mock_render.call_args[0][2]
+    assert "Proxmox-Snapshot" in ctx["description"]

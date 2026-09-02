@@ -19,27 +19,21 @@ from astrapi_admin.modules.hosts.ui.crud import KEY, api_router, router, store
 log = logging.getLogger(__name__)
 
 
-_MAX_PACKAGES_SHOWN = 10
-
-
-def _describe_pending_packages(host: dict) -> str:
-    """T-284-ADMIN: vor der Freigabe zeigen, WELCHE Pakete betroffen
-    waeren -- die Liste stammt aus dem letzten regulaeren Report
-    (post_report()), ist also hoechstens so aktuell wie der letzte
-    Agent-Zyklus, nicht live zum Zeitpunkt des Klicks."""
+def _pending_packages_list(host: dict) -> tuple[list[str] | None, str | None]:
+    """T-284-ADMIN: (items_list, items_label) fuer die scrollbare
+    Paketvorschau im Bestaetigungsdialog -- die Liste stammt aus dem
+    letzten regulaeren Report (post_report()), ist also hoechstens so
+    aktuell wie der letzte Agent-Zyklus, nicht live zum Zeitpunkt des
+    Klicks. items_list bleibt None, wenn nichts Bekanntes anzuzeigen ist
+    -- dann rendert dialog_confirm.html die Box gar nicht erst."""
     packages = host.get("updates_package_list") or []
     if not packages:
-        return "Keine bekannten ausstehenden Updates (evtl. noch nicht geprüft)."
+        return None, None
 
     security = set(host.get("security_updates_package_list") or [])
     labeled = [f"{p} (sicherheitsrelevant)" if p in security else p for p in packages]
-    if len(labeled) > _MAX_PACKAGES_SHOWN:
-        shown = labeled[:_MAX_PACKAGES_SHOWN]
-        rest = len(labeled) - _MAX_PACKAGES_SHOWN
-        pkg_text = ", ".join(shown) + f" und {rest} weitere"
-    else:
-        pkg_text = ", ".join(labeled)
-    return f"{len(packages)} Update{'s' if len(packages) != 1 else ''} betroffen: {pkg_text}."
+    label = f"{len(packages)} Update{'s' if len(packages) != 1 else ''} betroffen:"
+    return labeled, label
 
 
 @router.get(f"/ui/{KEY}/{{item_id}}/trigger-update", response_class=HTMLResponse)
@@ -48,12 +42,14 @@ def trigger_update_dialog(item_id: str, request: Request):
     if host is None:
         return HTMLResponse("Host nicht gefunden", status_code=404)
     label = host.get("label") or host.get("hostname") or item_id
-    description = (
-        f"{label}: {_describe_pending_packages(host)} Löst beim nächsten "
-        "Zyklus ein echtes 'apt upgrade'/'pacman -Syu' auf diesem einen Host aus."
-    )
+
+    items_list, items_label = _pending_packages_list(host)
+    description = label
+    if items_list is None:
+        description += " (keine bekannten ausstehenden Updates -- evtl. noch nicht geprüft)"
     if host.get("snapshot_before_update") and (host.get("proxmox_vmid") or -1) >= 0:
-        description += " Vorher wird ein Proxmox-Snapshot erstellt; schlägt der fehl, wird kein Update ausgelöst."
+        description += " -- vorher wird ein Proxmox-Snapshot erstellt; schlägt der fehl, wird kein Update ausgelöst"
+
     return render(
         request,
         "dialog_confirm.html",
@@ -61,6 +57,8 @@ def trigger_update_dialog(item_id: str, request: Request):
             title="Update anstoßen",
             description=description,
             verb="aktualisieren",
+            items_list=items_list,
+            items_label=items_label,
             confirm_url=f"/api/{KEY}/{item_id}/trigger-update",
             method="patch",
             reload_url=f"/ui/{KEY}/content",
