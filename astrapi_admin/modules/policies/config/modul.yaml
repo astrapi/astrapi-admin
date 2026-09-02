@@ -1,2 +1,7 @@
 label:       Policies
 nav_group:   Admin
+
+card_actions:
+  - title: Als JSON exportieren
+    icon: download
+    href: /ui/policies/{item}/export
