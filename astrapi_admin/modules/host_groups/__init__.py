@@ -41,9 +41,10 @@ module = load_modul(
     ui_router,
     ui_content=ContentTable(
         has_run_buttons=False,
+        has_status=False,
         columns=[
-            Col.trunc("description", "Beschreibung"),
-            Col.join("policy_ids", "Policies"),
+            Col.trunc("description_text", "Beschreibung"),
+            Col.join("policy_names", "Policies", css="col-trunc"),
         ],
     ),
 )
