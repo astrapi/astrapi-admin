@@ -94,9 +94,9 @@ module = load_modul(
                 "error":    {"label": "Fehler", "cls": "badge-status-err"},
                 "conflict": {"label": "Konflikt", "cls": "badge-status-warn"},
             }),
-            Col.text("updates_available", "Updates", sortable=False),
-            Col.text("proxmox_vmid", "Proxmox", sortable=False),
-            Col.text("last_seen", "Zuletzt gesehen"),
+            Col.text("updates_available", "Updates", css="col-info", sortable=False),
+            Col.text("proxmox_vmid", "Proxmox", css="col-info", sortable=False),
+            Col.text("last_seen", "Zuletzt gesehen", css="col-date"),
         ],
     ),
 )
