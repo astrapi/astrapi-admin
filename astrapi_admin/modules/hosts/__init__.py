@@ -26,6 +26,7 @@ _DDL = """
         updates_checked_at TEXT    NOT NULL DEFAULT '',
         proxmox_vmid       INTEGER NOT NULL DEFAULT -1,
         snapshot_before_update INTEGER NOT NULL DEFAULT 1,
+        reboot_required    INTEGER NOT NULL DEFAULT 0,
         enabled            INTEGER NOT NULL DEFAULT 1
     )"""
 
@@ -95,6 +96,9 @@ module = load_modul(
                 "conflict": {"label": "Konflikt", "cls": "badge-status-warn"},
             }),
             Col.text("updates_available", "Updates", css="col-info", sortable=False),
+            Col.badge_enum("reboot_required", "Neustart", {
+                "1": {"label": "erforderlich", "cls": "badge-status-warn"},
+            }, css="col-info"),
             Col.text("proxmox_vmid", "Proxmox", css="col-info", sortable=False),
             Col.text("last_seen", "Zuletzt gesehen", css="col-date"),
         ],

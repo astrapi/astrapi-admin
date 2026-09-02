@@ -205,6 +205,12 @@ def post_report(payload: ReportRequest, host_data=Depends(require_host)):
         # fehlgeschlagenes Update fuer immer "pending" und wuerde bei
         # jedem Zyklus stumpf wiederholt.
         updates["pending_action"] = ""
+    if "reboot_required" in payload.details:
+        # Nur uebernehmen, wenn der Agent das Feld ueberhaupt mitschickt --
+        # ein aelterer, noch nicht aktualisierter Agent kennt es nicht, ein
+        # unconditionales False wuerde einen echten anstehenden Neustart
+        # sonst faelschlich zuruecksetzen.
+        updates["reboot_required"] = bool(payload.details["reboot_required"])
 
     hosts_store.update(host_id, updates)
 

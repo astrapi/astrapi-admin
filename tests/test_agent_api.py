@@ -86,6 +86,41 @@ def test_get_policy_liefert_poll_interval_minutes_default(client):
     assert r.json()["poll_interval_minutes"] == 15
 
 
+def test_post_report_uebernimmt_reboot_required(client):
+    """T-298-ADMIN."""
+    from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
+
+    host_id, token = _create_host()
+
+    r = client.post(
+        "/api/agent/report",
+        json={"status": "ok", "summary": "keine Änderungen nötig", "details": {"reboot_required": True}},
+        headers=_auth(token),
+    )
+
+    assert r.status_code == 200
+    host = hosts_store.get(host_id)
+    assert host["reboot_required"]
+
+
+def test_post_report_ohne_reboot_required_feld_laesst_spalte_unangetastet(client):
+    """Ein aelterer, noch nicht aktualisierter Agent kennt das Feld nicht --
+    ein unconditionales False duerfte einen bereits erkannten, echten
+    Neustart-Bedarf nicht faelschlich zuruecksetzen."""
+    from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
+
+    host_id, token = _create_host(reboot_required=True)
+
+    client.post(
+        "/api/agent/report",
+        json={"status": "ok", "summary": "keine Änderungen nötig", "details": {"updates_available": 0}},
+        headers=_auth(token),
+    )
+
+    host = hosts_store.get(host_id)
+    assert host["reboot_required"]
+
+
 def test_post_report_uebernimmt_updates_available(client):
     from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
 
