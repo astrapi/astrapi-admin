@@ -8,6 +8,7 @@
   hidden_count (int)
 #}
 {% extends "dialog_core.html" %}
+{% import 'partials/components/ui_macros.html' as ui %}
 
 {% block dialog_width %}640{% endblock %}
 {% block dialog_title %}Nutzer – {{ description }}{% endblock %}
@@ -24,15 +25,15 @@
   {% if inventory %}
   <div x-data="{ showHidden: false }">
     {% if hidden_count %}
-    <div class="inline-cluster" style="margin-bottom:8px; justify-content:space-between;">
+    <div class="inline-cluster" style="margin-bottom:10px; justify-content:space-between;">
       <span style="font-size:12px; color:var(--text-3);" x-show="!showHidden">
         {{ hidden_count }} Systemkont{{ 'en' if hidden_count != 1 else 'o' }} ausgeblendet
         (Einstellungen &gt; Nutzer-Anzeige).
       </span>
       <span style="font-size:12px; color:var(--text-3);" x-show="showHidden">Alle Konten sichtbar.</span>
-      <button type="button" class="btn btn-ghost" style="font-size:12px;" x-on:click="showHidden = !showHidden">
+      {% call ui.btn(icon='eye', attrs='style="font-size:12px;" x-on:click="showHidden = !showHidden"') %}
         <span x-text="showHidden ? 'Systemkonten ausblenden' : 'Alle anzeigen'"></span>
-      </button>
+      {% endcall %}
     </div>
     {% endif %}
     <div style="overflow-x:auto;">
@@ -49,13 +50,13 @@
         </thead>
         <tbody>
           {% for u in inventory %}
-          <tr {% if u.hidden_by_filter %}x-show="showHidden"{% endif %}>
-            <td class="col-mono">{{ u.username }}</td>
-            <td>{{ u.uid }}</td>
+          <tr class="{{ 'off' if u.hidden_by_filter else 'on' }}" {% if u.hidden_by_filter %}x-show="showHidden"{% endif %}>
+            <td class="col-mono" style="font-weight:600;">{{ u.username }}</td>
+            <td class="col-mono">{{ u.uid }}</td>
             <td class="col-mono">{{ u.shell }}</td>
-            <td>{{ 'Ja' if u.sudo else '—' }}</td>
-            <td>{{ 'Ja' if u.has_ssh_keys else '—' }}</td>
-            <td>{{ 'astrapi-admin' if u.managed else '—' }}</td>
+            <td>{% if u.sudo %}<span class="badge-pill badge-status-warn">sudo</span>{% else %}—{% endif %}</td>
+            <td>{% if u.has_ssh_keys %}<span class="badge-pill badge-status-ok">Key</span>{% else %}—{% endif %}</td>
+            <td>{% if u.managed %}<span class="badge-pill badge-blue">astrapi-admin</span>{% else %}—{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
