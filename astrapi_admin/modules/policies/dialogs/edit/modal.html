@@ -89,13 +89,21 @@
       border:1px solid var(--border-s); border-radius:var(--rad-lg); background:var(--card);
     }
     .policy-cf-card input, .policy-cf-card select, .policy-cf-card textarea { font-size:12px; }
-    .policy-cf-topline { display:flex; gap:6px; align-items:center; }
-    .policy-cf-path { flex:2; min-width:0; }
+    .policy-cf-path { width:100%; font-family:monospace; }
+    .policy-cf-metaline { display:flex; gap:6px; align-items:center; }
     .policy-cf-action { flex:1; min-width:100px; }
     .policy-cf-mode, .policy-cf-owner, .policy-cf-group { width:70px; flex-shrink:0; }
     .policy-cf-force { width:100px; flex-shrink:0; }
     .policy-cf-secret { width:100px; flex-shrink:0; }
-    .policy-cf-content { width:100%; min-height:220px; font-family:monospace; resize:vertical; }
+    .policy-cf-content-btn { flex-shrink:0; }
+    /* Wird bei geoeffnetem Inhalt-Modal per JS dorthin verschoben (echtes
+       Element, kein Duplikat -- form="policy-form" haelt die Zuordnung
+       zum aeusseren Formular unabhaengig vom aktuellen DOM-Standort) und
+       beim Schliessen wieder hierher zurueckgestellt. */
+    .policy-cf-content { display:none; }
+    .policy-cf-content.policy-cf-content--open {
+      display:block; width:100%; min-height:60vh; font-family:monospace; resize:vertical;
+    }
     .policy-svc-name { flex:2; min-width:0; }
     .policy-svc-state { flex:1; min-width:140px; }
   </style>
@@ -146,9 +154,9 @@
       ? (cf.secret_is_set ? 'Geheimnis gesetzt -- leer lassen, um es zu behalten' : 'Neues Geheimnis eintragen')
       : 'Dateiinhalt';
     card.innerHTML =
-      '<div class="policy-cf-topline">' +
-        '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/pfad/datei.conf" value="' +
-          (cf.path || '').replace(/"/g, '&quot;') + '">' +
+      '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/pfad/datei.conf" value="' +
+        (cf.path || '').replace(/"/g, '&quot;') + '">' +
+      '<div class="policy-cf-metaline">' +
         '<select class="form-input policy-cf-action" name="cf_action" onchange="policyToggleCfContent(this)">' +
           CF_ACTIONS.map(function (a) { return opt(a[0], a[1], a[0] === action); }).join('') +
         '</select>' +
@@ -161,17 +169,66 @@
         '<select class="form-input policy-cf-secret" name="cf_secret" title="Geheimnis: Inhalt wird verschlüsselt separat gespeichert, nie im Klartext in der Policy">' +
           CF_SECRET.map(function (s) { return opt(s[0], s[1], s[0] === isSecret); }).join('') +
         '</select>' +
+        '<button type="button" class="btn btn-icon policy-cf-content-btn" title="Inhalt bearbeiten" ' +
+          'onclick="policyOpenContentModal(this)"' + (action === 'absent' ? ' style="display:none;"' : '') + '>' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-file-text"></use></svg>' +
+        '</button>' +
         '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-cf-card\').remove()">×</button>' +
       '</div>' +
-      '<textarea class="form-input policy-cf-content" name="cf_content" placeholder="' + contentPlaceholder + '" rows="12" ' +
-        (action === 'absent' ? 'style="display:none;"' : '') + '>' + contentValue + '</textarea>';
+      '<textarea class="form-input policy-cf-content" form="policy-form" name="cf_content" placeholder="' + contentPlaceholder + '">' +
+        contentValue + '</textarea>';
     cfRows.appendChild(card);
   };
 
   window.policyToggleCfContent = function (select) {
     var card = select.closest('.policy-cf-card');
-    var content = card.querySelector('.policy-cf-content');
-    content.style.display = select.value === 'absent' ? 'none' : '';
+    var btn = card.querySelector('.policy-cf-content-btn');
+    btn.style.display = select.value === 'absent' ? 'none' : '';
+  };
+
+  // Verschiebt die echte cf_content-Textarea (kein Duplikat) in ein
+  // Modal, das die App-weite .ds-modal-Optik nachbildet. Das Feld hat
+  // form="policy-form" -- die Formularzugehoerigkeit bleibt also
+  // unabhaengig davon erhalten, wo es gerade im DOM haengt. Beim
+  // Schliessen wandert es zurueck an seinen Platz in der Karte.
+  window.policyOpenContentModal = function (btn) {
+    var card = btn.closest('.policy-cf-card');
+    var textarea = card.querySelector('.policy-cf-content');
+    var pathInput = card.querySelector('.policy-cf-path');
+    var path = pathInput.value.trim() || '(kein Pfad angegeben)';
+
+    var backdrop = document.createElement('div');
+    backdrop.className = 'ds-modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="ds-modal" style="max-width:820px;">' +
+        '<div class="ds-modal-header">' +
+          '<span id="modal-title"></span>' +
+          '<button type="button" class="ds-modal-close" title="Schließen">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-close"></use></svg>' +
+          '</button>' +
+        '</div>' +
+        '<div class="policy-cf-modal-body" style="padding:16px 20px;"></div>' +
+        '<div style="display:flex; justify-content:flex-end; gap:8px; padding:12px 20px; border-top:1px solid var(--border-s);">' +
+          '<button type="button" class="btn btn-primary policy-cf-content-done">Fertig</button>' +
+        '</div>' +
+      '</div>';
+    backdrop.querySelector('#modal-title').textContent = 'Inhalt – ' + path;
+
+    function closeIt() {
+      textarea.classList.remove('policy-cf-content--open');
+      card.appendChild(textarea);
+      backdrop.remove();
+    }
+
+    textarea.classList.add('policy-cf-content--open');
+    backdrop.querySelector('.policy-cf-modal-body').appendChild(textarea);
+    backdrop.querySelector('.ds-modal-close').addEventListener('click', closeIt);
+    backdrop.querySelector('.policy-cf-content-done').addEventListener('click', closeIt);
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) closeIt(); });
+    backdrop.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeIt(); });
+
+    document.body.appendChild(backdrop);
+    textarea.focus();
   };
 
   window.policyAddService = function (svc) {
