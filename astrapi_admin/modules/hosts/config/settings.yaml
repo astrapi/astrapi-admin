@@ -55,7 +55,7 @@ fields:
 
   - key: hidden_system_usernames
     label: Standardmäßig ausgeblendete Kontonamen
-    type: list
+    type: tags
     mono: true
     default:
       - daemon
