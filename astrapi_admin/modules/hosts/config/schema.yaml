@@ -9,13 +9,8 @@ fields:
     colspan: 2
 
   - name: os_type
-    type: select
+    type: info
     label: Betriebssystem
-    options:
-      - value: archlinux
-        label: Arch Linux
-      - value: debian
-        label: Debian
     column: 1
     row: 2
 
