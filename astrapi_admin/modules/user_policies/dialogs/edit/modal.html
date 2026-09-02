@@ -1,0 +1,120 @@
+{#
+  astrapi_admin/modules/user_policies/dialogs/edit/modal.html
+  Strukturiertes Nutzer-Policy-Formular: eine dynamische Liste von
+  Nutzer-Eintraegen (Username/Aktion/Shell/sudo/SSH-Keys) -- kein
+  rohes JSON-Feld, analog zu policies/dialogs/edit/modal.html.
+  Variablen: policy (dict|None), error (str|None)
+#}
+{% extends "dialog_form.html" %}
+{% import 'partials/components/ui_macros.html' as ui %}
+
+{% set is_new = policy is none or policy.get('id') is none %}
+
+{% block dialog_width %}720{% endblock %}
+{% block dialog_title %}{{ 'Nutzer-Policy bearbeiten' if not is_new else 'Neue Nutzer-Policy' }}{% endblock %}
+{% block form_id %}user-policy-form{% endblock %}
+{% block form_action %}{% if is_new %}/ui/user_policies/{% else %}/ui/user_policies/{{ policy.id }}/update{% endif %}{% endblock %}
+{% block form_style %}display:flex; flex-direction:column; gap:16px;{% endblock %}
+
+{% block dialog_body %}
+  {% if error %}
+  <div style="padding:8px 12px;border-radius:6px;
+              background:var(--error-dim,#3a0000);color:var(--error,#ff6b6b);font-size:13px;">{{ error }}</div>
+  {% endif %}
+
+  <p class="ds-modal-copy">
+    Legt Accounts auf jedem Host an, dem diese Policy zugewiesen ist.
+    "Entfernen" löscht den Account inklusive Home-Verzeichnis -- aber
+    ausschließlich, wenn er von astrapi-admin selbst angelegt wurde.
+    Ein vorbestehender, fremder Account wird nie gelöscht.
+  </p>
+
+  <div class="form-group">
+    <label class="form-label">Name <span class="required-mark">*</span></label>
+    <input class="form-input" type="text" name="name"
+           value="{{ policy.name if policy else '' }}"
+           placeholder="z.B. base-admins" required autocomplete="off">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Beschreibung</label>
+    <input class="form-input" type="text" name="description"
+           value="{{ policy.description if policy else '' }}"
+           placeholder="z.B. Admin-Zugänge für alle Server" autocomplete="off">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:8px;">Nutzer</label>
+    <div id="user-entry-rows" class="policy-rows"></div>
+    <button type="button" class="btn btn-ghost" style="font-size:12px;" onclick="userPolicyAddEntry()">+ Nutzer</button>
+  </div>
+
+  <style>
+    .policy-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+    .user-entry-card {
+      display:flex; flex-direction:column; gap:8px; padding:8px;
+      border:1px solid var(--border-s); border-radius:var(--rad-lg); background:var(--card);
+    }
+    .user-entry-card input, .user-entry-card select, .user-entry-card textarea { font-size:12px; }
+    .user-entry-topline { display:flex; gap:6px; align-items:center; }
+    .user-entry-username { flex:2; min-width:0; font-family:monospace; }
+    .user-entry-action { flex:1; min-width:150px; }
+    .user-entry-shell { width:130px; flex-shrink:0; font-family:monospace; }
+    .user-entry-sudo { width:110px; flex-shrink:0; }
+    .user-entry-keys { width:100%; min-height:70px; font-family:monospace; resize:vertical; }
+  </style>
+{% endblock %}
+
+{% block dialog_footer %}
+{{ ui.modal_footer(
+  enabled=(policy.enabled if policy else True),
+  enabled_id='user-policy-enabled',
+  save_label=('Speichern' if not is_new else 'Erstellen'),
+) }}
+{% endblock %}
+
+{% block dialog_scripts %}
+<script>
+(function () {
+  var rows = document.getElementById('user-entry-rows');
+  var ACTIONS = [['enforce', 'Anlegen/Durchsetzen'], ['absent', 'Entfernen (inkl. Home-Verzeichnis)']];
+  var SUDO = [['0', 'Normal'], ['1', 'sudo/wheel']];
+
+  function opt(value, label, selected) {
+    return '<option value="' + value + '"' + (selected ? ' selected' : '') + '>' + label + '</option>';
+  }
+
+  window.userPolicyAddEntry = function (entry) {
+    entry = entry || {};
+    var card = document.createElement('div');
+    card.className = 'user-entry-card';
+    var action = entry.action || 'enforce';
+    var sudo = entry.sudo ? '1' : '0';
+    card.innerHTML =
+      '<div class="user-entry-topline">' +
+        '<input class="form-input user-entry-username" name="ue_username" type="text" placeholder="z.B. alice" value="' +
+          (entry.username || '').replace(/"/g, '&quot;') + '">' +
+        '<select class="form-input user-entry-action" name="ue_action">' +
+          ACTIONS.map(function (a) { return opt(a[0], a[1], a[0] === action); }).join('') +
+        '</select>' +
+        '<input class="form-input user-entry-shell" name="ue_shell" type="text" placeholder="/bin/bash" value="' +
+          (entry.shell || '/bin/bash') + '">' +
+        '<select class="form-input user-entry-sudo" name="ue_sudo" title="Mitgliedschaft in sudo (Debian) bzw. wheel (Arch)">' +
+          SUDO.map(function (s) { return opt(s[0], s[1], s[0] === sudo); }).join('') +
+        '</select>' +
+        '<button type="button" class="btn-icon btn-icon-danger" title="Entfernen" onclick="this.closest(\'.user-entry-card\').remove()">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-minus"></use></svg>' +
+        '</button>' +
+      '</div>' +
+      '<textarea class="form-input user-entry-keys" name="ue_ssh_keys" placeholder="Ein SSH-Public-Key pro Zeile">' +
+        ((entry.ssh_keys || []).join('\n')) + '</textarea>';
+    rows.appendChild(card);
+  };
+
+  {% if policy and policy.entries %}
+  var initialEntries = {{ policy.entries | tojson }};
+  initialEntries.forEach(function (e) { userPolicyAddEntry(e); });
+  {% endif %}
+})();
+</script>
+{% endblock %}

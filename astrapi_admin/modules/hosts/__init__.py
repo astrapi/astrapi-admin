@@ -27,6 +27,9 @@ _DDL = """
         proxmox_vmid       INTEGER NOT NULL DEFAULT -1,
         snapshot_before_update INTEGER NOT NULL DEFAULT 1,
         reboot_required    INTEGER NOT NULL DEFAULT 0,
+        user_policy_ids    TEXT    NOT NULL DEFAULT '',
+        user_inventory     TEXT    NOT NULL DEFAULT '',
+        user_inventory_checked_at TEXT NOT NULL DEFAULT '',
         enabled            INTEGER NOT NULL DEFAULT 1
     )"""
 
@@ -36,6 +39,7 @@ register_table(
     list_fields=[
         "group_ids", "policy_ids", "mirror_repos",
         "updates_package_list", "security_updates_package_list",
+        "user_policy_ids",
     ],
 )
 
@@ -51,6 +55,7 @@ register_source(_KEY, "Hosts")
 from astrapi_admin.modules.hosts import mirror_client  # noqa: E402
 from astrapi_admin.modules.hosts.ui import pairing as _pairing  # noqa: E402,F401 – registriert Routen auf ui_router
 from astrapi_admin.modules.hosts.ui import updates as _updates  # noqa: E402,F401 – registriert Routen auf ui_router
+from astrapi_admin.modules.hosts.ui import user_inventory as _user_inventory  # noqa: E402,F401 – registriert Routen auf ui_router
 from astrapi_admin.modules.hosts.ui.crud import api_router as router  # noqa: E402
 from astrapi_admin.modules.hosts.ui.crud import router as ui_router  # noqa: E402
 

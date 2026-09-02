@@ -30,12 +30,20 @@ fields:
     row: 4
     colspan: 2
 
+  - name: user_policy_ids
+    type: multiselect
+    label: Nutzer-Policies (direkt zugewiesen)
+    options_endpoint: /api/user_policies/for-select
+    column: 1
+    row: 5
+    colspan: 2
+
   - name: mirror_repos
     type: multiselect
     label: Mirror-Quellen (Debian)
     options_endpoint: /api/hosts/mirror-repos-for-select
     column: 1
-    row: 5
+    row: 6
     colspan: 2
 
   - name: snapshot_before_update
@@ -43,11 +51,11 @@ fields:
     label: "Snapshot vor Update erstellen (nur bei erkanntem Proxmox-LXC)"
     default: true
     column: 1
-    row: 6
+    row: 7
 
   - name: enabled
     type: boolean
     label: Aktiviert
     default: true
     column: 1
-    row: 7
+    row: 8

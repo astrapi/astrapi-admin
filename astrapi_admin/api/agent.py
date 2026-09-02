@@ -120,6 +120,7 @@ def get_policy(host_data=Depends(require_host)):
     from astrapi_admin.modules.hosts.agent_settings import poll_interval_minutes
     from astrapi_admin.modules.hosts.mirror_repos import resolve_mirror_config_files
     from astrapi_admin.modules.policies.engine import resolve_policy_for_host
+    from astrapi_admin.modules.user_policies.engine import resolve_users_for_host
 
     _host_id, host = host_data
     result = resolve_policy_for_host(host)
@@ -131,6 +132,11 @@ def get_policy(host_data=Depends(require_host)):
     # E-011: Poll-Intervall server-seitig einstellbar (Einstellungen >
     # Agent) -- der Agent gleicht seinen eigenen systemd-Timer danach ab.
     result["poll_interval_minutes"] = poll_interval_minutes()
+    # E-012: Nutzer-Policies separat aufgeloest (eigenes Modul, kein
+    # Gruppen-Erbe), Konflikte in dieselbe Liste eingehaengt.
+    user_result = resolve_users_for_host(host)
+    result["users"] = user_result["users"]
+    result["conflicts"].extend(user_result["conflicts"])
     return result
 
 
@@ -211,6 +217,15 @@ def post_report(payload: ReportRequest, host_data=Depends(require_host)):
         # unconditionales False wuerde einen echten anstehenden Neustart
         # sonst faelschlich zuruecksetzen.
         updates["reboot_required"] = bool(payload.details["reboot_required"])
+    if "user_inventory" in payload.details:
+        # E-012: rein informative Bestandsaufnahme -- ueberschreibt NIE
+        # eine user_policies-Zuweisung, macht auch keinen Account
+        # "verwaltet" (das entscheidet ausschliesslich der Agent selbst
+        # ueber sein eigenes managed_users). JSON-Text wie last_report,
+        # kein list_field (Eintraege sind strukturierte Dicts, keine
+        # einfachen Strings).
+        updates["user_inventory"] = json.dumps(payload.details["user_inventory"])
+        updates["user_inventory_checked_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
     hosts_store.update(host_id, updates)
 

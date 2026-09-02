@@ -10,4 +10,9 @@ card_actions:
     hx_get: /ui/hosts/{item}/trigger-update
     hx_target: body
     hx_swap: beforeend
+  - title: Nutzer anzeigen
+    icon: users
+    hx_get: /ui/hosts/{item}/user-inventory
+    hx_target: body
+    hx_swap: beforeend
   - type: log

@@ -103,6 +103,80 @@ def test_post_report_uebernimmt_reboot_required(client):
     assert host["reboot_required"]
 
 
+def test_get_policy_liefert_zugewiesene_nutzer(client):
+    """E-012."""
+    from astrapi_admin.modules.user_policies import engine as up_engine
+
+    up_engine.create_user_policy(
+        "up1", {"name": "base", "enabled": True, "entries": [{"username": "alice", "action": "enforce"}]}
+    )
+    _host_id, token = _create_host(user_policy_ids=["up1"])
+
+    r = client.get("/api/agent/policy", headers=_auth(token))
+
+    assert r.json()["users"] == [{"username": "alice", "action": "enforce"}]
+
+
+def test_get_policy_ohne_nutzer_policy_liefert_leere_liste(client):
+    _host_id, token = _create_host()
+
+    r = client.get("/api/agent/policy", headers=_auth(token))
+
+    assert r.json()["users"] == []
+
+
+def test_get_policy_nutzer_konflikt_landet_in_der_gemeinsamen_conflicts_liste(client):
+    from astrapi_admin.modules.user_policies import engine as up_engine
+
+    up_engine.create_user_policy(
+        "up1", {"name": "a", "enabled": True, "entries": [{"username": "alice", "action": "enforce", "sudo": True}]}
+    )
+    up_engine.create_user_policy(
+        "up2", {"name": "b", "enabled": True, "entries": [{"username": "alice", "action": "enforce", "sudo": False}]}
+    )
+    _host_id, token = _create_host(user_policy_ids=["up1", "up2"])
+
+    r = client.get("/api/agent/policy", headers=_auth(token))
+
+    assert {"type": "user", "username": "alice"} in r.json()["conflicts"]
+
+
+def test_post_report_uebernimmt_user_inventory(client):
+    """E-012."""
+    from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
+
+    host_id, token = _create_host()
+    inventory = [{"username": "alice", "uid": 1500, "shell": "/bin/bash", "sudo": True, "has_ssh_keys": True, "managed": True}]
+
+    r = client.post(
+        "/api/agent/report",
+        json={"status": "ok", "summary": "keine Änderungen nötig", "details": {"user_inventory": inventory}},
+        headers=_auth(token),
+    )
+
+    assert r.status_code == 200
+    host = hosts_store.get(host_id)
+    import json
+
+    assert json.loads(host["user_inventory"]) == inventory
+    assert host["user_inventory_checked_at"] != ""
+
+
+def test_post_report_ohne_user_inventory_feld_laesst_spalte_unangetastet(client):
+    from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
+
+    host_id, token = _create_host(user_inventory="[]")
+
+    client.post(
+        "/api/agent/report",
+        json={"status": "ok", "summary": "keine Änderungen nötig", "details": {"updates_available": 0}},
+        headers=_auth(token),
+    )
+
+    host = hosts_store.get(host_id)
+    assert host["user_inventory"] == "[]"
+
+
 def test_post_report_ohne_reboot_required_feld_laesst_spalte_unangetastet(client):
     """Ein aelterer, noch nicht aktualisierter Agent kennt das Feld nicht --
     ein unconditionales False duerfte einen bereits erkannten, echten

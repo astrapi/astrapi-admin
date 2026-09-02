@@ -1,0 +1,55 @@
+{#
+  astrapi_admin/modules/hosts/dialogs/user_inventory/modal.html
+  Read-only Bestandsaufnahme der auf einem Host gefundenen Nutzerkonten
+  (E-012) -- rein informativ, macht nie einen Account "verwaltet"; das
+  entscheidet ausschliesslich der Agent selbst (managed_users).
+  Variablen: description (str), inventory (list[dict]), checked_at (str)
+#}
+{% extends "dialog_core.html" %}
+
+{% block dialog_width %}640{% endblock %}
+{% block dialog_title %}Nutzer – {{ description }}{% endblock %}
+
+{% block dialog_body %}
+  {% if checked_at %}
+  <p class="ds-modal-copy" style="margin-bottom:12px;">
+    Zuletzt geprüft: {{ checked_at }}. Rein informativ — ein hier
+    aufgeführter Account gilt allein dadurch noch nicht als „von
+    astrapi-admin verwaltet".
+  </p>
+  {% endif %}
+
+  {% if inventory %}
+  <div style="overflow-x:auto;">
+    <table class="ds-list-table" style="width:100%;">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>UID</th>
+          <th>Shell</th>
+          <th>sudo/wheel</th>
+          <th>SSH-Key</th>
+          <th>Verwaltet</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in inventory %}
+        <tr>
+          <td class="col-mono">{{ u.username }}</td>
+          <td>{{ u.uid }}</td>
+          <td class="col-mono">{{ u.shell }}</td>
+          <td>{{ 'Ja' if u.sudo else '—' }}</td>
+          <td>{{ 'Ja' if u.has_ssh_keys else '—' }}</td>
+          <td>{{ 'astrapi-admin' if u.managed else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center" style="color:var(--text-3); font-size:13px; padding:20px 0;">
+    Noch keine Bestandsaufnahme vorhanden — erscheint nach dem nächsten
+    Agent-Zyklus (braucht mindestens astrapi-admin-agent v26.8.12).
+  </div>
+  {% endif %}
+{% endblock %}
