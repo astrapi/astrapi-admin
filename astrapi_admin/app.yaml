@@ -15,9 +15,15 @@ disabled_modules:
 # aenderbar, sobald der echte Deployment-Hostname feststeht.
 # /api/agent bleibt ausgenommen -- das ist die eigene Bearer-Token-API der
 # Agenten, keine Browser-Session.
+# password_fallback: false -- Passwort-Login war nur eine Uebergangsloesung
+# bis HTTPS steht (siehe Docstring in astrapi_core/system/auth.py). Seit
+# dem echten Produktiv-Deployment hinter Caddy/HTTPS (2026-09-02) ist
+# Passkey immer nutzbar, das Passwort als schwaecherer, phishbarer Weg
+# entfaellt bewusst.
 auth:
   enabled: true
   rp_id: admin.simpsons.lan
   rp_name: astrapi-admin
+  password_fallback: false
   exempt_prefixes:
     - /api/agent
