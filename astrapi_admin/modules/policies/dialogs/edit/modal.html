@@ -90,11 +90,12 @@
     }
     .policy-cf-card input, .policy-cf-card select, .policy-cf-card textarea { font-size:12px; }
     .policy-cf-path { width:100%; font-family:monospace; }
-    .policy-cf-metaline { display:flex; gap:6px; align-items:center; }
-    .policy-cf-action { flex:1; min-width:100px; }
-    .policy-cf-mode, .policy-cf-owner, .policy-cf-group { width:70px; flex-shrink:0; }
-    .policy-cf-force { width:100px; flex-shrink:0; }
-    .policy-cf-secret { width:100px; flex-shrink:0; }
+    .policy-cf-metaline { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .policy-cf-action { flex:1; min-width:110px; }
+    .policy-cf-mode { width:65px; flex-shrink:0; }
+    .policy-cf-owner, .policy-cf-group { width:100px; flex-shrink:0; }
+    .policy-cf-force { width:125px; flex-shrink:0; }
+    .policy-cf-secret { width:120px; flex-shrink:0; }
     .policy-cf-content-btn { flex-shrink:0; }
     /* Wird bei geoeffnetem Inhalt-Modal per JS dorthin verschoben (echtes
        Element, kein Duplikat -- form="policy-form" haelt die Zuordnung
@@ -169,7 +170,7 @@
         '<select class="form-input policy-cf-secret" name="cf_secret" title="Geheimnis: Inhalt wird verschlüsselt separat gespeichert, nie im Klartext in der Policy">' +
           CF_SECRET.map(function (s) { return opt(s[0], s[1], s[0] === isSecret); }).join('') +
         '</select>' +
-        '<button type="button" class="btn btn-icon policy-cf-content-btn" title="Inhalt bearbeiten" ' +
+        '<button type="button" class="btn-icon policy-cf-content-btn" title="Inhalt bearbeiten" ' +
           'onclick="policyOpenContentModal(this)"' + (action === 'absent' ? ' style="display:none;"' : '') + '>' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-file-text"></use></svg>' +
         '</button>' +
