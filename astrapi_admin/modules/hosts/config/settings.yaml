@@ -32,3 +32,19 @@ fields:
     label: API-Token-Secret
     type: password
     description: "Leer lassen, um ein bereits gesetztes Secret zu behalten"
+
+  - type: section
+    label: Agent
+    cols: 1
+
+  - key: agent_poll_interval_minutes
+    label: Abfrageintervall (Minuten)
+    type: number
+    min: 1
+    max: 1440
+    default: 15
+    description: >
+      Wie oft gekoppelte Agenten beim Server nach neuer Policy fragen.
+      Wirkt erst beim nächsten Poll-Zyklus des jeweiligen Agenten --
+      kein Sofort-Push. Braucht mindestens astrapi-admin-agent v26.8.10
+      (ältere Agenten ignorieren das Feld einfach).

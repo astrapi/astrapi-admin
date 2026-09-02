@@ -117,6 +117,7 @@ def pair(payload: PairRequest):
 
 @router.get("/policy")
 def get_policy(host_data=Depends(require_host)):
+    from astrapi_admin.modules.hosts.agent_settings import poll_interval_minutes
     from astrapi_admin.modules.hosts.mirror_repos import resolve_mirror_config_files
     from astrapi_admin.modules.policies.engine import resolve_policy_for_host
 
@@ -127,6 +128,9 @@ def get_policy(host_data=Depends(require_host)):
     # der Admin explizit angefordert hat (aktuell nur "update") -- NICHT
     # automatisch/Policy-getrieben, siehe hosts/ui/updates.py.
     result["pending_action"] = host.get("pending_action") or ""
+    # E-011: Poll-Intervall server-seitig einstellbar (Einstellungen >
+    # Agent) -- der Agent gleicht seinen eigenen systemd-Timer danach ab.
+    result["poll_interval_minutes"] = poll_interval_minutes()
     return result
 
 

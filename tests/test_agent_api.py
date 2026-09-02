@@ -77,6 +77,15 @@ def test_get_policy_gibt_gesetztes_pending_action_weiter(client):
     assert r.json()["pending_action"] == "update"
 
 
+def test_get_policy_liefert_poll_interval_minutes_default(client):
+    """E-011: Default 15 ohne gesetztes Setting."""
+    _host_id, token = _create_host()
+
+    r = client.get("/api/agent/policy", headers=_auth(token))
+
+    assert r.json()["poll_interval_minutes"] == 15
+
+
 def test_post_report_uebernimmt_updates_available(client):
     from astrapi_admin.modules.hosts.ui.crud import store as hosts_store
 
