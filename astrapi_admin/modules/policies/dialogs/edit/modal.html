@@ -89,14 +89,15 @@
       border:1px solid var(--border-s); border-radius:var(--rad-lg); background:var(--card);
     }
     .policy-cf-card input, .policy-cf-card select, .policy-cf-card textarea { font-size:12px; }
-    .policy-cf-path { width:100%; font-family:monospace; }
+    .policy-cf-topline { display:flex; gap:6px; align-items:center; }
+    .policy-cf-path { flex:1; min-width:0; font-family:monospace; }
     .policy-cf-metaline { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
     .policy-cf-action { flex:1; min-width:110px; }
     .policy-cf-mode { width:65px; flex-shrink:0; }
     .policy-cf-owner, .policy-cf-group { width:100px; flex-shrink:0; }
     .policy-cf-force { width:125px; flex-shrink:0; }
     .policy-cf-secret { width:120px; flex-shrink:0; }
-    .policy-cf-content-btn { flex-shrink:0; }
+    .policy-cf-content-btn, .policy-cf-topline .btn-icon { flex-shrink:0; }
     /* Wird bei geoeffnetem Inhalt-Modal per JS dorthin verschoben (echtes
        Element, kein Duplikat -- form="policy-form" haelt die Zuordnung
        zum aeusseren Formular unabhaengig vom aktuellen DOM-Standort) und
@@ -155,8 +156,17 @@
       ? (cf.secret_is_set ? 'Geheimnis gesetzt -- leer lassen, um es zu behalten' : 'Neues Geheimnis eintragen')
       : 'Dateiinhalt';
     card.innerHTML =
-      '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/pfad/datei.conf" value="' +
-        (cf.path || '').replace(/"/g, '&quot;') + '">' +
+      '<div class="policy-cf-topline">' +
+        '<input class="form-input policy-cf-path" name="cf_path" type="text" placeholder="/etc/pfad/datei.conf" value="' +
+          (cf.path || '').replace(/"/g, '&quot;') + '">' +
+        '<button type="button" class="btn-icon policy-cf-content-btn" title="Inhalt bearbeiten" ' +
+          'onclick="policyOpenContentModal(this)"' + (action === 'absent' ? ' style="display:none;"' : '') + '>' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-file-text"></use></svg>' +
+        '</button>' +
+        '<button type="button" class="btn-icon btn-icon-danger" title="Entfernen" onclick="this.closest(\'.policy-cf-card\').remove()">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-minus"></use></svg>' +
+        '</button>' +
+      '</div>' +
       '<div class="policy-cf-metaline">' +
         '<select class="form-input policy-cf-action" name="cf_action" onchange="policyToggleCfContent(this)">' +
           CF_ACTIONS.map(function (a) { return opt(a[0], a[1], a[0] === action); }).join('') +
@@ -170,11 +180,6 @@
         '<select class="form-input policy-cf-secret" name="cf_secret" title="Geheimnis: Inhalt wird verschlüsselt separat gespeichert, nie im Klartext in der Policy">' +
           CF_SECRET.map(function (s) { return opt(s[0], s[1], s[0] === isSecret); }).join('') +
         '</select>' +
-        '<button type="button" class="btn-icon policy-cf-content-btn" title="Inhalt bearbeiten" ' +
-          'onclick="policyOpenContentModal(this)"' + (action === 'absent' ? ' style="display:none;"' : '') + '>' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#icon-file-text"></use></svg>' +
-        '</button>' +
-        '<button type="button" class="policy-row-remove" onclick="this.closest(\'.policy-cf-card\').remove()">×</button>' +
       '</div>' +
       '<textarea class="form-input policy-cf-content" form="policy-form" name="cf_content" placeholder="' + contentPlaceholder + '">' +
         contentValue + '</textarea>';
