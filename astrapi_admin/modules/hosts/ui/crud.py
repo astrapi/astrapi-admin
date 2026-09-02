@@ -45,7 +45,15 @@ def _resolve_fields(fields: list, item: dict | None = None) -> list:
 def _resolve_labels(item_id: str, item: dict) -> dict:
     """Loest group_ids/policy_ids fuer die Listen-/Bearbeiten-ANZEIGE gegen
     Name/Beschreibung auf (analog zu astrapi-syncs devices._resolve_folder_labels,
-    T-225-SYNC) -- vermeidet rohe IDs in der Oberflaeche."""
+    T-225-SYNC) -- vermeidet rohe IDs in der Oberflaeche.
+
+    'description' fuellt die generische NAME-Spalte der Listenansicht
+    (list_wrapper_inner.html: item_data.description or .job or .host or
+    item_name) -- ohne das zeigte sie die rohe DB-ID statt des Hostnamens.
+    Kein separates 'Anzeigename'-Feld mehr (T-285-ADMIN, Nutzerwunsch:
+    "der Hostname reicht mir")."""
+    item["description"] = item.get("hostname") or item_id
+
     from astrapi_admin.modules.host_groups.ui.crud import groups_for_select
 
     group_labels = {opt["value"]: opt["label"] for opt in groups_for_select()}

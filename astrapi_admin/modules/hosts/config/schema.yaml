@@ -6,14 +6,7 @@ fields:
     max: 120
     column: 1
     row: 1
-
-  - name: label
-    type: text
-    label: Anzeigename
-    placeholder: "(Default: Hostname)"
-    max: 120
-    column: 2
-    row: 1
+    colspan: 2
 
   - name: os_type
     type: select

@@ -78,8 +78,12 @@ module = load_modul(
     ]),
     ui_content=ContentTable(
         has_run_buttons=False,
+        # has_status=False: sonst haengt list_wrapper_inner.html eine
+        # zweite, generische Status-Spalte an (dasselbe last_status-Feld,
+        # aber ohne die eigene OK/Drift/Fehler/Konflikt-Unterscheidung
+        # unten) -- Duplikat, T-285-ADMIN.
+        has_status=False,
         columns=[
-            Col.text("hostname", "Hostname"),
             Col.badge_enum("os_type", "OS", {
                 "archlinux": {"label": "Arch", "cls": "badge-status-ok"},
                 "debian":    {"label": "Debian", "cls": "badge-status-warn"},
