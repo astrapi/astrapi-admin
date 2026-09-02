@@ -58,6 +58,13 @@ def user_inventory_dialog(item_id: str, request: Request):
     for u in inventory:
         u["hidden_by_filter"] = _is_hidden(u.get("username", ""), patterns)
     hidden_count = sum(1 for u in inventory if u["hidden_by_filter"])
+    # Sichtbare Zeilen zuerst, ausgeblendete danach: die ausgeblendeten
+    # Zeilen bleiben im DOM (nur per Alpine x-show/display:none versteckt,
+    # fuer den "Alle anzeigen"-Umschalter), zaehlen also weiterhin fuer
+    # CSS :nth-child mit. Ohne diese Gruppierung haengt die Zebra-Faerbung
+    # der sichtbaren Zeilen vom Zufall ab, wie viele ausgeblendete Zeilen
+    # in der urspruenglichen /etc/passwd-Reihenfolge dazwischenliegen.
+    inventory.sort(key=lambda u: u["hidden_by_filter"])
 
     return render(
         request,

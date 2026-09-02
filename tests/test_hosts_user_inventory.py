@@ -145,3 +145,30 @@ def test_user_inventory_dialog_leere_liste_setting_zeigt_alles():
     ctx = mock_render.call_args[0][2]
     assert ctx["inventory"][0]["hidden_by_filter"] is False
     assert ctx["hidden_count"] == 0
+
+
+def test_user_inventory_dialog_gruppiert_sichtbare_zeilen_vor_ausgeblendeten():
+    """Ausgeblendete Zeilen bleiben per Alpine x-show im DOM (nur
+    display:none), zaehlen also weiterhin fuer CSS :nth-child mit --
+    ohne diese Gruppierung haengt die Zebra-Faerbung der sichtbaren
+    Zeilen vom Zufall ab, wie viele ausgeblendete Zeilen in der
+    urspruenglichen /etc/passwd-Reihenfolge dazwischenliegen (am echten
+    Screenshot beobachtet: root/ottoadm/caddy/test gleich gefaerbt,
+    nur claude abweichend -- weil dazwischen unterschiedlich viele
+    ausgeblendete Systemkonten lagen)."""
+    inventory = [
+        {"username": "root"},       # sichtbar
+        {"username": "daemon"},     # ausgeblendet (Default-Muster)
+        {"username": "bin"},        # ausgeblendet
+        {"username": "caddy"},      # sichtbar
+        {"username": "sshd"},       # ausgeblendet
+        {"username": "claude"},     # sichtbar
+    ]
+    host_id = _create_host(user_inventory=json.dumps(inventory))
+
+    with patch("astrapi_admin.modules.hosts.ui.user_inventory.render") as mock_render:
+        hosts_user_inventory.user_inventory_dialog(host_id, request=None)
+
+    ctx = mock_render.call_args[0][2]
+    order = [u["username"] for u in ctx["inventory"]]
+    assert order == ["root", "caddy", "claude", "daemon", "bin", "sshd"]
