@@ -50,7 +50,7 @@ def test_user_inventory_dialog_parst_gespeicherte_bestandsaufnahme():
         hosts_user_inventory.user_inventory_dialog(host_id, request=None)
 
     ctx = mock_render.call_args[0][2]
-    assert ctx["inventory"] == inventory
+    assert ctx["inventory"][0]["username"] == "alice"
     assert ctx["checked_at"] == "2026-09-02 18:00:00"
 
 
@@ -78,3 +78,70 @@ def test_user_inventory_dialog_unbekannter_host_gibt_404():
     response = hosts_user_inventory.user_inventory_dialog("nie-angelegt", request=None)
 
     assert response.status_code == 404
+
+
+# ── Anzeigefilter (Nutzerfeedback nach T-300-ADMIN) ────────────────────
+
+
+def test_is_hidden_erkennt_exakten_namen():
+    assert hosts_user_inventory._is_hidden("sshd", ["sshd"]) is True
+    assert hosts_user_inventory._is_hidden("caddy", ["sshd"]) is False
+
+
+def test_is_hidden_unterstuetzt_glob_muster():
+    assert hosts_user_inventory._is_hidden("systemd-network", ["systemd-*"]) is True
+    assert hosts_user_inventory._is_hidden("systemd-resolve", ["systemd-*"]) is True
+    assert hosts_user_inventory._is_hidden("claude", ["systemd-*"]) is False
+
+
+def test_user_inventory_dialog_markiert_default_systemkonten_als_ausgeblendet():
+    """Ohne gesetztes Setting greift der Python-seitige Default -- muss
+    dieselben interessanten Service-Accounts (caddy, claude) wie das
+    urspruengliche Nutzerbeispiel sichtbar lassen, aber sshd ausblenden."""
+    inventory = [
+        {"username": "claude", "uid": 997, "shell": "/bin/bash"},
+        {"username": "caddy", "uid": 999, "shell": "/usr/sbin/nologin"},
+        {"username": "sshd", "uid": 101, "shell": "/usr/sbin/nologin"},
+        {"username": "systemd-network", "uid": 998, "shell": "/usr/sbin/nologin"},
+    ]
+    host_id = _create_host(user_inventory=json.dumps(inventory))
+
+    with patch("astrapi_admin.modules.hosts.ui.user_inventory.render") as mock_render:
+        hosts_user_inventory.user_inventory_dialog(host_id, request=None)
+
+    ctx = mock_render.call_args[0][2]
+    hidden = {u["username"]: u["hidden_by_filter"] for u in ctx["inventory"]}
+    assert hidden == {"claude": False, "caddy": False, "sshd": True, "systemd-network": True}
+    assert ctx["hidden_count"] == 2
+
+
+def test_user_inventory_dialog_respektiert_gesetztes_setting(monkeypatch):
+    from astrapi_core.ui import settings_registry
+
+    monkeypatch.setattr(
+        settings_registry, "get_module", lambda module_key, key, default=None: ["caddy"]
+    )
+    inventory = [{"username": "caddy", "uid": 999, "shell": "x"}, {"username": "claude", "uid": 997, "shell": "x"}]
+    host_id = _create_host(user_inventory=json.dumps(inventory))
+
+    with patch("astrapi_admin.modules.hosts.ui.user_inventory.render") as mock_render:
+        hosts_user_inventory.user_inventory_dialog(host_id, request=None)
+
+    ctx = mock_render.call_args[0][2]
+    hidden = {u["username"]: u["hidden_by_filter"] for u in ctx["inventory"]}
+    assert hidden == {"caddy": True, "claude": False}
+
+
+def test_user_inventory_dialog_leere_liste_setting_zeigt_alles():
+    from astrapi_core.ui import settings_registry
+
+    with patch.object(settings_registry, "get_module", return_value=[]):
+        inventory = [{"username": "sshd", "uid": 101, "shell": "x"}]
+        host_id = _create_host(user_inventory=json.dumps(inventory))
+
+        with patch("astrapi_admin.modules.hosts.ui.user_inventory.render") as mock_render:
+            hosts_user_inventory.user_inventory_dialog(host_id, request=None)
+
+    ctx = mock_render.call_args[0][2]
+    assert ctx["inventory"][0]["hidden_by_filter"] is False
+    assert ctx["hidden_count"] == 0
