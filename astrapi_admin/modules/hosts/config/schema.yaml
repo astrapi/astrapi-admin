@@ -25,7 +25,7 @@ fields:
   - name: policy_ids
     type: multiselect
     label: Policies (direkt zugewiesen)
-    options_endpoint: /api/policies/for-select
+    options_endpoint: /api/policies/for-select?context=host
     column: 1
     row: 4
     colspan: 2

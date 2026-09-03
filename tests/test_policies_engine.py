@@ -140,6 +140,28 @@ def test_resolve_policy_for_host_direkte_zuweisung_dupliziert_nicht_mit_gruppe()
     assert result["packages_required"] == ["vim"]
 
 
+def test_policies_for_select_zeigt_alles_ohne_filter():
+    """host_groups/config/schema.yaml haengt kein ?context=host an --
+    dort muss auch eine group_only-Policy waehlbar bleiben."""
+    policies_engine.create_policy("p1", {"name": "normal", "enabled": True})
+    policies_engine.create_policy("p2", {"name": "nur-gruppen", "enabled": True, "group_only": True})
+
+    result = policies_engine.policies_for_select()
+
+    assert {o["value"] for o in result} == {"p1", "p2"}
+
+
+def test_policies_for_select_blendet_group_only_fuer_host_kontext_aus():
+    """hosts/config/schema.yaml haengt ?context=host an -- exclude_group_only
+    muss die Policy dort aus der Direkt-Zuweisung nehmen."""
+    policies_engine.create_policy("p1", {"name": "normal", "enabled": True})
+    policies_engine.create_policy("p2", {"name": "nur-gruppen", "enabled": True, "group_only": True})
+
+    result = policies_engine.policies_for_select(exclude_group_only=True)
+
+    assert {o["value"] for o in result} == {"p1"}
+
+
 def test_resolve_policy_for_host_force_unterschied_ist_ein_konflikt():
     """Zwei Policies auf derselben Vorrangstufe, die sich nur im
     force-Flag unterscheiden, duerfen nicht still aufgeloest werden --

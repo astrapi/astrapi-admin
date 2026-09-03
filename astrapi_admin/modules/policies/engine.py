@@ -47,10 +47,16 @@ def toggle_policy(policy_id: str) -> None:
     _store().toggle(policy_id)
 
 
-def policies_for_select() -> list[dict]:
+def policies_for_select(exclude_group_only: bool = False) -> list[dict]:
+    """exclude_group_only: True fuer die Direkt-Zuweisung am Host (siehe
+    modules/hosts/config/schema.yaml, options_endpoint mit ?context=host)
+    -- eine als 'nur ueber Gruppen zuweisbar' markierte Policy taucht dort
+    dann gar nicht erst in der Auswahl auf. Die Gruppen-eigene Auswahl
+    (host_groups/config/schema.yaml) bleibt ungefiltert."""
     return [
         {"value": pid, "label": p.get("name") or pid}
         for pid, p in _store().list().items()
+        if not (exclude_group_only and p.get("group_only"))
     ]
 
 

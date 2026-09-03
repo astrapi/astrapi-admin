@@ -36,6 +36,14 @@
            placeholder="z.B. Baseline für alle simpsons.lan-Server" autocomplete="off">
   </div>
 
+  <div class="form-group">
+    {{ ui.toggle_field('group_only', checked=(policy.group_only if policy else False), label='Nur über Gruppen zuweisbar') }}
+    <div class="policy-subhead" style="margin-top:4px;">
+      Taucht dann nicht mehr in der Direkt-Zuweisung am Host auf -- nur
+      noch über eine Host-Gruppe zuweisbar, für mehr Übersicht am Host.
+    </div>
+  </div>
+
   <!-- Pakete -->
   <div class="form-group">
     <label class="form-label" style="margin-bottom:8px;">Benötigte Pakete</label>

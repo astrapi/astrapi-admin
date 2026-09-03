@@ -30,6 +30,11 @@ policies_table = ContentTable(
     columns=[
         Col.trunc("description_text", "Beschreibung"),
         Col.text("summary", "Umfang", sortable=False),
+        Col.badge_enum(
+            "group_only", "Zuweisung",
+            {"True": {"label": "nur Gruppen", "cls": "badge-blue"}},
+            css="col-info",
+        ),
     ],
 )
 
@@ -198,6 +203,7 @@ async def policies_import_preview(request: Request):
         "name": data.get("name", ""),
         "description": data.get("description", ""),
         "enabled": bool(data.get("enabled", True)),
+        "group_only": bool(data.get("group_only", False)),
         "packages_arch": _as_list(data.get("packages_arch")),
         "packages_debian": _as_list(data.get("packages_debian")),
         "config_files": _as_list(data.get("config_files")),
@@ -300,6 +306,7 @@ async def _parse_form(request: Request, policy_id: str) -> dict:
         "name": form.get("name", "").strip(),
         "description": form.get("description", "").strip(),
         "enabled": "1" in form.getlist("enabled"),
+        "group_only": "1" in form.getlist("group_only"),
         "packages_arch": _lines(form.get("packages_arch", "")),
         "packages_debian": _lines(form.get("packages_debian", "")),
         "config_files": config_files,
