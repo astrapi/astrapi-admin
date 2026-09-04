@@ -1,4 +1,5 @@
 # astrapi_admin/modules/hosts/ui/crud.py
+import json
 from pathlib import Path
 
 from astrapi_core.ui.crud_blueprint import make_crud_router
@@ -93,6 +94,7 @@ def _resolve_labels(item_id: str, item: dict) -> dict:
     item["proxmox_vmid"] = _format_proxmox_vmid(item.get("proxmox_vmid"))
     item["last_status"] = _display_status(item.get("last_status"))
     item["os_type"] = _format_os_type(item.get("os_type"))
+    item["next_run_display"] = _next_run_at(item.get("last_report"))
 
     return item
 
@@ -157,6 +159,26 @@ def _updates_category(value, security_value=None) -> str:
 
 def _format_os_type(value: str | None) -> str:
     return {"archlinux": "Arch", "debian": "Debian"}.get(value or "", value or "—")
+
+
+def _next_run_at(last_report_json: str | None) -> str:
+    """Liest next_run_at aus dem zuletzt gespeicherten Report (last_report
+    ist bereits ein JSON-Blob mit status/summary/details, siehe
+    api/agent.py::post_report()) -- bewusst KEINE eigene DB-Spalte dafuer:
+    das Feld haengt ohnehin schon im details-Dict mit durch, eine neue
+    Spalte haette nur Migrationsrisiko fuer bereits existierende
+    Host-Zeilen gebracht (siehe T-308-CORE, save_item()/create_item()
+    in astrapi-core bauen INSERT/UPDATE nur aus den uebergebenen Keys --
+    ohne Migration wuerde das an einer bestehenden DB mit "no such
+    column" scheitern). Aeltere Agenten (vor v26.9.2) kennen das Feld
+    noch nicht -- liefert dann "unbekannt", nicht faelschlich leer."""
+    if not last_report_json:
+        return "unbekannt"
+    try:
+        details = json.loads(last_report_json).get("details") or {}
+    except (ValueError, TypeError):
+        return "unbekannt"
+    return details.get("next_run_at") or "unbekannt"
 
 
 api_router = make_htmx_crud_router(

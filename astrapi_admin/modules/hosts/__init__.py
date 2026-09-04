@@ -98,7 +98,19 @@ module = load_modul(
             Col.text("os_type", "OS", css="col-info", sortable=False),
             Col.dot_text("updates_available", "Updates", category_key="updates_category", css="col-info"),
             Col.text("proxmox_vmid", "Proxmox", css="col-info", sortable=False),
-            Col.text("last_seen", "Zuletzt gesehen", css="col-date"),
+            # "Letzter Lauf" statt "Zuletzt gesehen": last_seen wird
+            # ausschliesslich in api/auth.py::require_host() gesetzt, bei
+            # jedem authentifizierten Agent-Call (GET /policy, POST
+            # /report -- beide nur als Teil eines apply()-Laufs, in
+            # dieser Reihenfolge). Der zuletzt geschriebene Wert
+            # entspricht damit dem Abschluss des letzten Laufs.
+            Col.text("last_seen", "Letzter Lauf", css="col-date"),
+            # next_run_display kommt aus dem Agenten selbst (systemd
+            # list-timers, inkl. Jitter) statt einer server-seitigen
+            # last_seen+Intervall-Schaetzung -- siehe hosts/ui/crud.py::
+            # _next_run_at(). Braucht Agent >= v26.9.2, aeltere Agenten
+            # liefern "unbekannt".
+            Col.text("next_run_display", "Nächster Lauf", css="col-date", sortable=False),
         ],
     ),
 )

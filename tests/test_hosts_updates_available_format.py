@@ -58,3 +58,34 @@ def test_format_os_type_unbekannter_wert_faellt_auf_rohwert_zurueck():
     assert _format_os_type("windows") == "windows"
     assert _format_os_type(None) == "—"
     assert _format_os_type("") == "—"
+
+
+def test_next_run_at_liest_aus_last_report_details():
+    import json
+
+    from astrapi_admin.modules.hosts.ui.crud import _next_run_at
+
+    last_report = json.dumps({"status": "ok", "summary": "x", "details": {"next_run_at": "2026-09-04 22:00:00"}})
+    assert _next_run_at(last_report) == "2026-09-04 22:00:00"
+
+
+def test_next_run_at_ohne_last_report_ist_unbekannt():
+    from astrapi_admin.modules.hosts.ui.crud import _next_run_at
+
+    assert _next_run_at(None) == "unbekannt"
+    assert _next_run_at("") == "unbekannt"
+
+
+def test_next_run_at_aelterer_agent_ohne_feld_ist_unbekannt():
+    import json
+
+    from astrapi_admin.modules.hosts.ui.crud import _next_run_at
+
+    last_report = json.dumps({"status": "ok", "summary": "x", "details": {}})
+    assert _next_run_at(last_report) == "unbekannt"
+
+
+def test_next_run_at_kaputtes_json_ist_unbekannt():
+    from astrapi_admin.modules.hosts.ui.crud import _next_run_at
+
+    assert _next_run_at("kein json") == "unbekannt"
