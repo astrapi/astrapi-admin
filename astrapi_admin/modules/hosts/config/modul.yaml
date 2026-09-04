@@ -10,6 +10,15 @@ card_actions:
     hx_get: /ui/hosts/{item}/trigger-update
     hx_target: body
     hx_swap: beforeend
+    hide_if_field_value:
+      field: pending_action
+      value: update
+  - title: Update zurücknehmen
+    icon: close
+    hx_get: /ui/hosts/{item}/cancel-update
+    hx_target: body
+    hx_swap: beforeend
+    show_if_field: pending_action
   - title: Nutzer anzeigen
     icon: users
     hx_get: /ui/hosts/{item}/user-inventory

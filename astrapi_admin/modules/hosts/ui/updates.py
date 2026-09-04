@@ -121,3 +121,41 @@ def trigger_update(item_id: str):
 
     store.update(item_id, {"pending_action": "update"})
     return Response(status_code=204)
+
+
+@router.get(f"/ui/{KEY}/{{item_id}}/cancel-update", response_class=HTMLResponse)
+def cancel_update_dialog(item_id: str, request: Request):
+    host = store.get(item_id)
+    if host is None:
+        return HTMLResponse("Host nicht gefunden", status_code=404)
+    label = host.get("label") or host.get("hostname") or item_id
+
+    return render(
+        request,
+        "dialog_confirm.html",
+        dict(
+            title="Update zurücknehmen",
+            description=f"{label} -- das angeforderte Update wird nicht mehr ausgeführt, "
+            "solange es der Agent noch nicht abgeholt hat.",
+            verb="zurücknehmen",
+            confirm_url=f"/api/{KEY}/{item_id}/cancel-update",
+            method="patch",
+            reload_url=f"/ui/{KEY}/content",
+        ),
+    )
+
+
+@api_router.patch("/{item_id}/cancel-update", status_code=204)
+def cancel_update(item_id: str):
+    """Setzt pending_action nur zurueck, wenn noch 'update' ansteht -- ein
+    Agent, der die Anforderung zwischen Klick und Bestaetigung bereits
+    abgeholt hat (pending_action dadurch schon wieder leer, siehe
+    post_report() in api/agent.py), soll durch einen verspaeteten
+    Abbruch-Klick nicht faelschlich etwas ueberschreiben."""
+    host = store.get(item_id)
+    if host is None:
+        raise HTTPException(404, "Host nicht gefunden")
+
+    if host.get("pending_action") == "update":
+        store.update(item_id, {"pending_action": ""})
+    return Response(status_code=204)
