@@ -82,10 +82,17 @@ def _resolve_labels(item_id: str, item: dict) -> dict:
     policy_labels = {opt["value"]: opt["label"] for opt in policies_for_select()}
     item["policy_ids"] = [policy_labels.get(pid, pid) for pid in (item.get("policy_ids") or [])]
 
-    item["updates_available"] = _format_updates_available(
+    item["updates_category"] = _updates_category(
         item.get("updates_available"), item.get("security_updates_available")
     )
+    item["updates_available"] = _format_updates_available(
+        item.get("updates_available"),
+        item.get("security_updates_available"),
+        item.get("pending_action"),
+    )
     item["proxmox_vmid"] = _format_proxmox_vmid(item.get("proxmox_vmid"))
+    item["last_status"] = _display_status(item.get("last_status"))
+    item["os_type"] = _format_os_type(item.get("os_type"))
 
     return item
 
@@ -96,18 +103,60 @@ def _format_proxmox_vmid(value) -> str:
     return f"VMID {value}"
 
 
-def _format_updates_available(value, security_value=None) -> str:
+def _display_status(value: str | None) -> str | None:
+    """Nutzerentscheidung 2026-09-04: die generische Status-Spalte
+    (status_inline() in astrapi-core, kennt nur ok/error/warning/running/
+    pending/neu) wird jetzt genutzt statt einer eigenen badge_enum-Spalte
+    -- 'drift' und 'conflict' (siehe api/agent.py::_REPORT_STATUSES)
+    werden dafuer beide als 'warning' angezeigt. Der gespeicherte Rohwert
+    bleibt unveraendert (nur die ANZEIGE wird hier umgeschrieben) -- die
+    genaue Unterscheidung ist weiterhin ueber "Log anzeigen" einsehbar,
+    jeder Report haengt schon summarize()s Zusammenfassung ins
+    Activity-Log."""
+    return "warning" if value in ("drift", "conflict") else value
+
+
+def _format_updates_available(value, security_value=None, pending_action=None) -> str:
     """security_value ist nur bei Debian-Hosts gesetzt (>= 0, siehe E-008)
     -- bei Arch (immer -1, checkupdates kennt keine Security-Kategorie)
-    bleibt es unerwaehnt statt "0 sicherheitsrelevant" vorzutaeuschen."""
+    bleibt es unerwaehnt statt "0 sicherheitsrelevant" vorzutaeuschen.
+
+    pending_action zeigt an, ob ein Admin "Update anstoßen" bereits
+    geklickt hat (hosts/ui/updates.py) -- ohne diesen Hinweis war in der
+    Liste nicht erkennbar, ob eine Freigabe schon erfolgt ist oder noch
+    aussteht, bis der Agent beim naechsten Poll berichtet."""
     if value is None or value < 0:
-        return "noch nicht geprüft"
-    if value == 0:
-        return "aktuell"
-    base = f"{value} Update{'s' if value != 1 else ''}"
-    if security_value is not None and security_value > 0:
-        base += f" ({security_value} sicherheitsrelevant)"
+        base = "noch nicht geprüft"
+    elif value == 0:
+        base = "aktuell"
+    else:
+        base = f"{value} Update{'s' if value != 1 else ''}"
+        if security_value is not None and security_value > 0:
+            base += f" ({security_value} sicherheitsrelevant)"
+
+    if pending_action == "update":
+        base += " -- angefordert, wartet auf Agent"
+
     return base
+
+
+def _updates_category(value, security_value=None) -> str:
+    """Farbpunkt-Kategorie fuer Col.dot_text (Nutzerwunsch 2026-09-04):
+    gruen = keine Updates, orange = normale Updates, rot =
+    sicherheitsrelevante Updates dabei. Kein Punkt (leerer String), wenn
+    der Stand unbekannt ist (noch nie geprueft) -- ein gruener Punkt
+    waere dort falsch beruhigend."""
+    if value is None or value < 0:
+        return ""
+    if value == 0:
+        return "ok"
+    if security_value is not None and security_value > 0:
+        return "error"
+    return "warning"
+
+
+def _format_os_type(value: str | None) -> str:
+    return {"archlinux": "Arch", "debian": "Debian"}.get(value or "", value or "—")
 
 
 api_router = make_htmx_crud_router(

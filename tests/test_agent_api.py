@@ -447,3 +447,95 @@ def test_post_report_update_result_ohne_pakete_meldet_das_explizit(client):
 
     lines = [c.args[1] for c in mock_append.call_args_list]
     assert any("keine Pakete betroffen" in ln for ln in lines)
+
+
+def test_post_report_ohne_update_versuch_haengt_trotzdem_eine_zeile_an(client):
+    """Nachtrag zu T-306-ADMIN: der "Log anzeigen"-Dialog zeigt nur
+    angehaengte Zeilen, nie das description-Feld des activity_log-
+    Eintrags selbst -- ein normaler Drift/OK/Konflikt-Report OHNE
+    Update-Versuch haengte bisher gar keine Zeile an und der Dialog
+    blieb faelschlich leer."""
+    host_id, token = _create_host()
+
+    with patch("astrapi_core.system.activity_log.append_log_line") as mock_append:
+        client.post(
+            "/api/agent/report",
+            json={"status": "ok", "summary": "keine Änderungen nötig", "details": {}},
+            headers=_auth(token),
+        )
+
+    mock_append.assert_called()
+    lines = [c.args[1] for c in mock_append.call_args_list]
+    assert any("keine Änderungen nötig" in ln for ln in lines)
+
+
+def test_post_report_drift_bekommt_warning_praefix_und_detailzeile(client):
+    host_id, token = _create_host()
+
+    with patch("astrapi_core.system.activity_log.append_log_line") as mock_append:
+        client.post(
+            "/api/agent/report",
+            json={
+                "status": "drift",
+                "summary": "1 übersprungen (Fremdbesitz)",
+                "details": {
+                    "config_files": [
+                        {
+                            "path": "/etc/apt/sources.list.d/simpsons.sources",
+                            "action": "absent",
+                            "status": "skipped_conflict",
+                            "detail": "wurde nicht von astrapi-admin angelegt -- nicht gelöscht",
+                        }
+                    ]
+                },
+            },
+            headers=_auth(token),
+        )
+
+    lines = [c.args[1] for c in mock_append.call_args_list]
+    assert any(ln.startswith("WARNING: 1 übersprungen") for ln in lines)
+    assert any(
+        ln == "WARNING: /etc/apt/sources.list.d/simpsons.sources: "
+        "wurde nicht von astrapi-admin angelegt -- nicht gelöscht"
+        for ln in lines
+    )
+
+
+def test_post_report_fehlgeschlagenes_paket_bekommt_error_praefix(client):
+    host_id, token = _create_host()
+
+    with patch("astrapi_core.system.activity_log.append_log_line") as mock_append:
+        client.post(
+            "/api/agent/report",
+            json={
+                "status": "error",
+                "summary": "1 fehlgeschlagen",
+                "details": {
+                    "packages": [{"name": "caddy", "status": "failed", "detail": "caddy ist nicht installiert"}]
+                },
+            },
+            headers=_auth(token),
+        )
+
+    lines = [c.args[1] for c in mock_append.call_args_list]
+    assert any(ln.startswith("ERROR: 1 fehlgeschlagen") for ln in lines)
+    assert any(ln == "ERROR: caddy: caddy ist nicht installiert" for ln in lines)
+
+
+def test_post_report_ok_items_werden_nicht_als_detailzeile_geloggt(client):
+    host_id, token = _create_host()
+
+    with patch("astrapi_core.system.activity_log.append_log_line") as mock_append:
+        client.post(
+            "/api/agent/report",
+            json={
+                "status": "ok",
+                "summary": "keine Änderungen nötig",
+                "details": {"packages": [{"name": "vim", "status": "ok"}]},
+            },
+            headers=_auth(token),
+        )
+
+    lines = [c.args[1] for c in mock_append.call_args_list]
+    assert not any("vim" in ln for ln in lines)
+    assert len(lines) == 1

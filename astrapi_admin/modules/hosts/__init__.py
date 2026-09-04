@@ -84,26 +84,19 @@ module = load_modul(
     ]),
     ui_content=ContentTable(
         has_run_buttons=False,
-        # has_status=False: sonst haengt list_wrapper_inner.html eine
-        # zweite, generische Status-Spalte an (dasselbe last_status-Feld,
-        # aber ohne die eigene OK/Drift/Fehler/Konflikt-Unterscheidung
-        # unten) -- Duplikat, T-285-ADMIN.
-        has_status=False,
+        # Die generische Status-Spalte wird jetzt bewusst genutzt (T-305-
+        # ADMIN-Nachfolger, Nutzerentscheidung 2026-09-04) -- drift/conflict
+        # werden dafuer in hosts/ui/crud.py::_resolve_labels() auf
+        # "warning" abgebildet (generisches status_inline() kennt nur ok/
+        # error/warning/running/pending/neu). Die verlorene Drift-vs-
+        # Konflikt-Unterscheidung ist ueber den bereits vorhandenen "Log
+        # anzeigen"-Button (card_actions, type: log) weiterhin einen
+        # Klick entfernt einsehbar -- jeder Report haengt schon die genaue
+        # summarize()-Zusammenfassung ins Activity-Log (api/agent.py::
+        # post_report()), nicht erst seit dieser Aenderung.
         columns=[
-            Col.badge_enum("os_type", "OS", {
-                "archlinux": {"label": "Arch", "cls": "badge-status-ok"},
-                "debian":    {"label": "Debian", "cls": "badge-status-warn"},
-            }),
-            Col.badge_enum("last_status", "Status", {
-                "ok":       {"label": "OK", "cls": "badge-status-ok"},
-                "drift":    {"label": "Drift", "cls": "badge-status-warn"},
-                "error":    {"label": "Fehler", "cls": "badge-status-err"},
-                "conflict": {"label": "Konflikt", "cls": "badge-status-warn"},
-            }),
-            Col.text("updates_available", "Updates", css="col-info", sortable=False),
-            Col.badge_enum("reboot_required", "Neustart", {
-                "1": {"label": "erforderlich", "cls": "badge-status-warn"},
-            }, css="col-info"),
+            Col.text("os_type", "OS", css="col-info", sortable=False),
+            Col.dot_text("updates_available", "Updates", category_key="updates_category", css="col-info"),
             Col.text("proxmox_vmid", "Proxmox", css="col-info", sortable=False),
             Col.text("last_seen", "Zuletzt gesehen", css="col-date"),
         ],

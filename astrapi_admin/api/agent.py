@@ -238,6 +238,31 @@ def post_report(payload: ReportRequest, host_data=Depends(require_host)):
         status=status,
     )
 
+    # T-306-ADMIN-Nachtrag: der "Log anzeigen"-Dialog (astrapi-core:
+    # dialog_log.html) zeigt NUR angehaengte Zeilen (append_log_line()),
+    # nie das eigene description-Feld des activity_log-Eintrags -- bisher
+    # blieb er bei jedem Report ohne Update-Versuch (also bei jedem
+    # normalen Drift/Konflikt/OK-Zyklus) komplett leer, obwohl die
+    # Zusammenfassung schon in der DB stand. Deshalb hier immer
+    # mindestens eine Zeile anhaengen, plus je eine Detailzeile pro
+    # nicht-ok-Element (failed/skipped_conflict) -- Faerbung im Dialog
+    # erkennt "WARNING:"/"ERROR:" nur als Text-Praefix, nicht ueber die
+    # level-Spalte (log_content.html).
+    from astrapi_core.system.activity_log import append_log_line
+
+    def _line_prefix(item_status: str) -> str:
+        return {"failed": "ERROR: ", "skipped_conflict": "WARNING: "}.get(item_status, "")
+
+    summary_prefix = {"error": "ERROR: ", "drift": "WARNING: ", "conflict": "WARNING: "}.get(status, "")
+    append_log_line(log_id, f"{summary_prefix}{payload.summary or 'keine Änderungen nötig'}")
+    for key in ("packages", "services", "config_files", "users"):
+        for item in payload.details.get(key) or []:
+            item_status = item.get("status")
+            if item_status in (None, "ok"):
+                continue
+            what = item.get("path") or item.get("name") or item.get("username") or "?"
+            append_log_line(log_id, f"{_line_prefix(item_status)}{what}: {item.get('detail', '')}")
+
     if "update_result" in payload.details:
         # T-284-ADMIN: im Log sichtbar machen, WAS ein angestoßenes Update
         # tatsaechlich veraendert hat -- sonst zeigt der Log-Eintrag nur die
