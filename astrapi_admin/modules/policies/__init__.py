@@ -13,15 +13,15 @@ from astrapi_admin.modules.policies.ui import router as ui_router  # noqa: E402
 
 
 def _policies_options_fetcher(endpoint: str) -> list:
-    # hosts/config/schema.yaml haengt ?context=host an -- blendet dort
-    # 'nur ueber Gruppen zuweisbar' markierte Policies aus der Direkt-
-    # Zuweisung aus (host_groups/config/schema.yaml haengt nichts an,
-    # bleibt ungefiltert, siehe engine.py::policies_for_select()).
+    # hosts/config/schema.yaml haengt ?context=host, host_groups/config/
+    # schema.yaml ?context=group an -- harte, wechselseitige Trennung
+    # zwischen Einzel- und Gruppen-Policies, siehe
+    # engine.py::policies_for_select().
     from urllib.parse import parse_qs, urlsplit
 
     query = parse_qs(urlsplit(endpoint).query)
-    is_host_context = query.get("context", [""])[0] == "host"
-    return policies_for_select(exclude_group_only=is_host_context)
+    context = query.get("context", [""])[0] or None
+    return policies_for_select(context=context)
 
 
 # Ohne diese Registrierung bleibt jedes options_endpoint-Multiselect-Feld,

@@ -19,7 +19,7 @@ fields:
   - name: policy_ids
     type: multiselect
     label: Policies
-    options_endpoint: /api/policies/for-select
+    options_endpoint: /api/policies/for-select?context=group
     column: 1
     row: 3
     colspan: 2

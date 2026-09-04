@@ -47,16 +47,24 @@ def toggle_policy(policy_id: str) -> None:
     _store().toggle(policy_id)
 
 
-def policies_for_select(exclude_group_only: bool = False) -> list[dict]:
-    """exclude_group_only: True fuer die Direkt-Zuweisung am Host (siehe
-    modules/hosts/config/schema.yaml, options_endpoint mit ?context=host)
-    -- eine als 'nur ueber Gruppen zuweisbar' markierte Policy taucht dort
-    dann gar nicht erst in der Auswahl auf. Die Gruppen-eigene Auswahl
-    (host_groups/config/schema.yaml) bleibt ungefiltert."""
+def policies_for_select(context: str | None = None) -> list[dict]:
+    """context steuert eine harte, wechselseitige Trennung zwischen
+    Einzel- und Gruppen-Policies (Nutzerentscheidung 2026-09-04, Nachfolger
+    von T-301-ADMINs rein informativem group_only -- vorher liess sich
+    eine group_only-Policy trotzdem noch an einer Gruppe UND eine normale
+    Policy trotzdem noch direkt an mehreren Hosts zuweisen):
+
+    - "host":  nur Policies mit group_only=False (Direkt-Zuweisung am
+      Host, siehe modules/hosts/config/schema.yaml, ?context=host)
+    - "group": nur Policies mit group_only=True (Zuweisung an eine
+      Host-Gruppe, siehe modules/host_groups/config/schema.yaml,
+      ?context=group)
+    - None: ungefiltert (z.B. Label-Auflösung für die Anzeige, die beide
+      Arten gleichzeitig zeigen können muss, siehe hosts/ui/crud.py)."""
     return [
         {"value": pid, "label": p.get("name") or pid}
         for pid, p in _store().list().items()
-        if not (exclude_group_only and p.get("group_only"))
+        if context is None or bool(p.get("group_only")) == (context == "group")
     ]
 
 

@@ -140,9 +140,9 @@ def test_resolve_policy_for_host_direkte_zuweisung_dupliziert_nicht_mit_gruppe()
     assert result["packages_required"] == ["vim"]
 
 
-def test_policies_for_select_zeigt_alles_ohne_filter():
-    """host_groups/config/schema.yaml haengt kein ?context=host an --
-    dort muss auch eine group_only-Policy waehlbar bleiben."""
+def test_policies_for_select_ohne_context_zeigt_alles():
+    """Ungefiltert wird gebraucht, wo beide Arten gleichzeitig angezeigt
+    werden muessen (z.B. Label-Aufloesung in hosts/ui/crud.py)."""
     policies_engine.create_policy("p1", {"name": "normal", "enabled": True})
     policies_engine.create_policy("p2", {"name": "nur-gruppen", "enabled": True, "group_only": True})
 
@@ -151,15 +151,28 @@ def test_policies_for_select_zeigt_alles_ohne_filter():
     assert {o["value"] for o in result} == {"p1", "p2"}
 
 
-def test_policies_for_select_blendet_group_only_fuer_host_kontext_aus():
-    """hosts/config/schema.yaml haengt ?context=host an -- exclude_group_only
-    muss die Policy dort aus der Direkt-Zuweisung nehmen."""
+def test_policies_for_select_context_host_zeigt_nur_einzel_policies():
+    """hosts/config/schema.yaml haengt ?context=host an -- eine
+    Gruppen-Policy (group_only=True) darf dort nicht auftauchen."""
     policies_engine.create_policy("p1", {"name": "normal", "enabled": True})
     policies_engine.create_policy("p2", {"name": "nur-gruppen", "enabled": True, "group_only": True})
 
-    result = policies_engine.policies_for_select(exclude_group_only=True)
+    result = policies_engine.policies_for_select(context="host")
 
     assert {o["value"] for o in result} == {"p1"}
+
+
+def test_policies_for_select_context_group_zeigt_nur_gruppen_policies():
+    """host_groups/config/schema.yaml haengt ?context=group an --
+    umgekehrte Sperre: eine normale Einzel-Policy (group_only=False)
+    darf dort nicht mehr auftauchen (Nutzerentscheidung 2026-09-04,
+    harte statt informative Trennung)."""
+    policies_engine.create_policy("p1", {"name": "normal", "enabled": True})
+    policies_engine.create_policy("p2", {"name": "nur-gruppen", "enabled": True, "group_only": True})
+
+    result = policies_engine.policies_for_select(context="group")
+
+    assert {o["value"] for o in result} == {"p2"}
 
 
 def test_resolve_policy_for_host_force_unterschied_ist_ein_konflikt():

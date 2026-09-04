@@ -37,10 +37,12 @@
   </div>
 
   <div class="form-group">
-    {{ ui.toggle_field('group_only', checked=(policy.group_only if policy else False), label='Nur über Gruppen zuweisbar') }}
+    {{ ui.toggle_field('group_only', checked=(policy.group_only if policy else False), label='Gruppen-Policy') }}
     <div class="policy-subhead" style="margin-top:4px;">
-      Taucht dann nicht mehr in der Direkt-Zuweisung am Host auf -- nur
-      noch über eine Host-Gruppe zuweisbar, für mehr Übersicht am Host.
+      Aus: nur direkt an einem Host zuweisbar, taucht in der
+      Gruppen-Auswahl nicht auf. Ein: nur an einer Host-Gruppe
+      zuweisbar, taucht in der Direkt-Zuweisung am Host nicht auf --
+      beides schließt sich gegenseitig aus.
     </div>
   </div>
 

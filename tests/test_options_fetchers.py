@@ -35,7 +35,7 @@ def test_policies_options_endpoint_liefert_echte_daten():
 def test_policies_options_endpoint_context_host_blendet_group_only_aus():
     """hosts/config/schema.yaml haengt ?context=host an den Endpoint an --
     eine group_only-Policy darf dort nicht in der Direkt-Zuweisung
-    auftauchen (host_groups' eigener, unveraenderter Endpoint schon)."""
+    auftauchen."""
     from astrapi_admin.modules.policies import engine as policies_engine
 
     policies_engine.create_policy("p1", {"name": "Baseline", "enabled": True})
@@ -52,6 +52,29 @@ def test_policies_options_endpoint_context_host_blendet_group_only_aus():
     )
 
     assert resolved[0]["options"] == [{"value": "p1", "label": "Baseline"}]
+
+
+def test_policies_options_endpoint_context_group_blendet_einzel_policies_aus():
+    """host_groups/config/schema.yaml haengt ?context=group an -- die
+    umgekehrte Sperre: eine normale Einzel-Policy (group_only=False) darf
+    dort nicht mehr auftauchen (Nutzerentscheidung 2026-09-04, harte statt
+    informative Trennung)."""
+    from astrapi_admin.modules.policies import engine as policies_engine
+
+    policies_engine.create_policy("p1", {"name": "Baseline", "enabled": True})
+    policies_engine.create_policy("p2", {"name": "Caddy", "enabled": True, "group_only": True})
+
+    resolved = resolve_options_endpoint(
+        [
+            {
+                "name": "policy_ids",
+                "type": "multiselect",
+                "options_endpoint": "/api/policies/for-select?context=group",
+            }
+        ]
+    )
+
+    assert resolved[0]["options"] == [{"value": "p2", "label": "Caddy"}]
 
 
 def test_host_groups_options_endpoint_liefert_echte_daten():

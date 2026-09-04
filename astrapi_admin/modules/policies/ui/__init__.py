@@ -26,13 +26,18 @@ api_router = APIRouter()
 policies_table = ContentTable(
     has_create=False,
     has_run_buttons=False,
+    # Policies "laufen" nicht (kein last_status wie bei Jobs/Scheduler) --
+    # die generische Status-Spalte aus list_wrapper_inner.html zeigte
+    # deshalb fuer jede Policy nur den bedeutungslosen "Neu"-Default-Badge.
+    # Gleiche Fehlerklasse wie bei hosts, siehe T-285-ADMIN.
+    has_status=False,
     has_toggle=True,
     columns=[
         Col.trunc("description_text", "Beschreibung"),
         Col.text("summary", "Umfang", sortable=False),
         Col.badge_enum(
-            "group_only", "Zuweisung",
-            {"True": {"label": "nur Gruppen", "cls": "badge-blue"}},
+            "group_only", "Typ",
+            {"Gruppe": {"label": "Gruppe", "cls": "badge-blue"}, "Host": {"label": "Host", "cls": "badge-grey"}},
             css="col-info",
         ),
     ],
@@ -92,6 +97,13 @@ def _list_item(pid: str, p: dict) -> dict:
         "summary": _summary(p),
         "description_text": p.get("description") or "—",
         "description": p.get("name") or pid,
+        # T-305-ADMIN: Col.badge_enum() schaut den Wert NUR nach, wenn er
+        # selbst schon truthy ist (siehe ui_macros.html::col_cell) --
+        # group_only=False wuerde also nie im 'False'-Eintrag der
+        # values-Map landen, sondern immer als "-" gerendert. Deshalb
+        # hier auf einen eigenen, immer truthy-String umgeschrieben
+        # (analog zu _format_updates_available() in hosts/ui/crud.py).
+        "group_only": "Gruppe" if p.get("group_only") else "Host",
     }
 
 
