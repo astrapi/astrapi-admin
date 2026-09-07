@@ -1,0 +1,63 @@
+{#
+  astrapi_admin/modules/host_groups/dialogs/import/modal.html
+  Erster Schritt des Gruppen-Imports: JSON einfuegen/hochladen, wird auf
+  Absenden nur GEPARST und in den generischen create_edit_modal.html-Dialog
+  uebernommen -- angelegt wird erst dort per normalem "Erstellen", nicht
+  schon hier. Analog zu policies/dialogs/import/modal.html.
+  Variablen: error (str|None), raw (str|None, Wiederherstellung nach Fehler)
+#}
+{% extends "dialog_form.html" %}
+
+{% block dialog_width %}640{% endblock %}
+{% block dialog_title %}Gruppe importieren{% endblock %}
+{% block form_id %}host-group-import-form{% endblock %}
+{% block form_action %}/ui/host_groups/import-preview{% endblock %}
+{% block form_style %}display:flex; flex-direction:column; gap:16px;{% endblock %}
+
+{% block dialog_body %}
+  {% if error %}
+  <div style="padding:8px 12px;border-radius:6px;
+              background:var(--error-dim,#3a0000);color:var(--error,#ff6b6b);font-size:13px;">{{ error }}</div>
+  {% endif %}
+
+  <p class="ds-modal-copy">
+    JSON-Export einer Gruppe (z.B. vom Testserver) einfügen oder als Datei
+    auswählen. Im nächsten Schritt lässt sich der Inhalt vor dem Anlegen
+    noch prüfen und anpassen. Policy-/Mirror-Zuweisungen werden als rohe
+    IDs übernommen -- existieren sie auf diesem Server nicht, bleiben die
+    entsprechenden Felder schlicht leer, statt einen Fehler zu zeigen.
+  </p>
+
+  <div class="form-group">
+    <label class="form-label">Datei auswählen (optional)</label>
+    <input type="file" accept="application/json,.json" class="form-input"
+           onchange="hostGroupImportFile(this)">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">JSON <span class="required-mark">*</span></label>
+    <textarea class="form-input policy-textarea" name="import_json" rows="14"
+              style="font-family:monospace;" required
+              placeholder='{"name": "dev-hosts", "policy_ids": [...], "user_policy_ids": [...], ...}'>{{ raw or '' }}</textarea>
+  </div>
+
+  <script>
+    function hostGroupImportFile(input) {
+      var file = input.files && input.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var form = input.closest('form');
+        form.querySelector('textarea[name="import_json"]').value = reader.result;
+      };
+      reader.readAsText(file);
+    }
+  </script>
+{% endblock %}
+
+{% block dialog_footer %}
+<div class="ds-modal-footer ds-modal-footer--end">
+  <button type="button" class="btn btn-sm btn-ghost" onclick="closeModal(this)">Abbrechen</button>
+  <button type="submit" class="btn btn-sm btn-primary">Weiter</button>
+</div>
+{% endblock %}

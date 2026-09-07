@@ -7,17 +7,18 @@ _KEY = Path(__file__).parent.name
 
 _DDL = """
     CREATE TABLE IF NOT EXISTS host_groups (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        name         TEXT    NOT NULL DEFAULT '',
-        description  TEXT    NOT NULL DEFAULT '',
-        policy_ids   TEXT    NOT NULL DEFAULT '',
-        mirror_repos TEXT    NOT NULL DEFAULT '',
-        enabled      INTEGER NOT NULL DEFAULT 1
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        name            TEXT    NOT NULL DEFAULT '',
+        description     TEXT    NOT NULL DEFAULT '',
+        policy_ids      TEXT    NOT NULL DEFAULT '',
+        user_policy_ids TEXT    NOT NULL DEFAULT '',
+        mirror_repos    TEXT    NOT NULL DEFAULT '',
+        enabled         INTEGER NOT NULL DEFAULT 1
     )"""
 
-register_table(_KEY, _DDL, list_fields=["policy_ids", "mirror_repos"])
+register_table(_KEY, _DDL, list_fields=["policy_ids", "user_policy_ids", "mirror_repos"])
 
-from astrapi_core.ui.controls import Col, ContentTable  # noqa: E402
+from astrapi_core.ui.controls import Col, ContentTable, Header  # noqa: E402
 from astrapi_core.ui.field_resolver import register_options_fetcher as _reg  # noqa: E402
 
 from astrapi_admin.modules.host_groups.ui.crud import api_router as router  # noqa: E402
@@ -39,12 +40,35 @@ module = load_modul(
     _KEY,
     router,
     ui_router,
+    # Explizites ui_header ersetzt den generischen automatischen "Neu"-Button
+    # (content.html rendert ihn nur, wenn ui_header None ist) -- deshalb hier
+    # bewusst BEIDE Buttons, nicht nur "Importieren", sonst verschwindet
+    # "Neue Gruppe" ersatzlos.
+    ui_header=Header(
+        [
+            Header.action_button(
+                "Importieren",
+                hx_get=f"/ui/{_KEY}/import",
+                hx_target="body",
+                style="ghost",
+                icon="arrow-up",
+            ),
+            Header.action_button(
+                "Neue Gruppe",
+                hx_get=f"/ui/{_KEY}/create",
+                hx_target="body",
+                style="primary",
+                icon="plus",
+            ),
+        ]
+    ),
     ui_content=ContentTable(
         has_run_buttons=False,
         has_status=False,
         columns=[
             Col.trunc("description_text", "Beschreibung"),
             Col.join("policy_names", "Policies", css="col-trunc"),
+            Col.join("user_policy_names", "Nutzer-Policies", css="col-trunc"),
         ],
     ),
 )

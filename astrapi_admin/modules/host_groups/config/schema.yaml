@@ -24,10 +24,18 @@ fields:
     row: 3
     colspan: 2
 
+  - name: user_policy_ids
+    type: multiselect
+    label: Nutzer-Policies
+    options_endpoint: /api/user_policies/for-select
+    column: 1
+    row: 4
+    colspan: 2
+
   - name: mirror_repos
     type: multiselect
     label: Mirror-Quellen (Debian)
     options_endpoint: /api/hosts/mirror-repos-for-select
     column: 1
-    row: 4
+    row: 5
     colspan: 2

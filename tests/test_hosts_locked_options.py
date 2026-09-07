@@ -8,6 +8,7 @@ from astrapi_core.system import db
 from astrapi_admin.modules.hosts import mirror_client
 from astrapi_admin.modules.hosts.ui import crud as hosts_crud
 from astrapi_admin.modules.policies import engine as policies_engine
+from astrapi_admin.modules.user_policies import engine as user_policies_engine
 
 
 @pytest.fixture(autouse=True)
@@ -17,7 +18,12 @@ def _isolated_db(tmp_path):
     yield
 
 
-def _create_group(name: str, mirror_repos_: list[str] | None = None, policy_ids: list[str] | None = None) -> str:
+def _create_group(
+    name: str,
+    mirror_repos_: list[str] | None = None,
+    policy_ids: list[str] | None = None,
+    user_policy_ids: list[str] | None = None,
+) -> str:
     from astrapi_admin.modules.host_groups.ui.crud import store as groups_store
 
     return groups_store.create(
@@ -26,6 +32,7 @@ def _create_group(name: str, mirror_repos_: list[str] | None = None, policy_ids:
             "name": name,
             "description": "",
             "policy_ids": policy_ids or [],
+            "user_policy_ids": user_policy_ids or [],
             "mirror_repos": mirror_repos_ or [],
             "enabled": True,
         },
@@ -36,6 +43,7 @@ def _fields():
     return [
         {"name": "mirror_repos", "type": "multiselect", "options_endpoint": "/api/hosts/mirror-repos-for-select"},
         {"name": "policy_ids", "type": "multiselect", "options_endpoint": "/api/policies/for-select"},
+        {"name": "user_policy_ids", "type": "multiselect", "options_endpoint": "/api/user_policies/for-select"},
     ]
 
 
@@ -93,6 +101,33 @@ def test_resolve_fields_direkt_zugewiesene_policy_wird_nicht_gesperrt(monkeypatc
     policy_field = next(f for f in resolved if f["name"] == "policy_ids")
     opts = {o["value"]: o for o in policy_field["options"]}
     assert "locked" not in opts["p1"]
+
+
+def test_resolve_fields_markiert_gruppen_geerbte_user_policy_als_locked(monkeypatch):
+    monkeypatch.setattr(mirror_client, "list_debian_repos", lambda: [])
+    user_policies_engine.create_user_policy("up1", {"name": "deploy", "enabled": True, "entries": []})
+    user_policies_engine.create_user_policy("up2", {"name": "diag", "enabled": True, "entries": []})
+    gid = _create_group("dev-hosts", user_policy_ids=["up1"])
+    item = {"group_ids": [gid]}
+
+    resolved = hosts_crud._resolve_fields(_fields(), item)
+
+    user_policy_field = next(f for f in resolved if f["name"] == "user_policy_ids")
+    opts = {o["value"]: o for o in user_policy_field["options"]}
+    assert opts["up1"].get("locked") is True
+    assert "locked" not in opts["up2"]
+
+
+def test_resolve_fields_direkt_zugewiesene_user_policy_wird_nicht_gesperrt(monkeypatch):
+    monkeypatch.setattr(mirror_client, "list_debian_repos", lambda: [])
+    user_policies_engine.create_user_policy("up1", {"name": "deploy", "enabled": True, "entries": []})
+    item = {"group_ids": [], "user_policy_ids": ["up1"]}
+
+    resolved = hosts_crud._resolve_fields(_fields(), item)
+
+    user_policy_field = next(f for f in resolved if f["name"] == "user_policy_ids")
+    opts = {o["value"]: o for o in user_policy_field["options"]}
+    assert "locked" not in opts["up1"]
 
 
 def _fields_with_snapshot_toggle():

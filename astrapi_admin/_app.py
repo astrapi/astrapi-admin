@@ -38,6 +38,25 @@ def _db_check() -> tuple[bool, dict]:
         return False, {"db": False}
 
 
+def _migrate_host_groups_user_policy_ids() -> None:
+    """register_table()'s DDL ist CREATE TABLE IF NOT EXISTS -- legt bei
+    bereits bestehender Tabelle keine neuen Spalten nach. user_policy_ids
+    kam nachträglich zu host_groups dazu (Gruppen-Zuweisung für
+    user_policies, astrapi-hub-Vault E-013-Folge), hier per ALTER TABLE
+    ergänzt (gleiches Muster wie astrapi_sync/_app.py::
+    _migrate_folders_storage_location())."""
+    from astrapi_core.system.db import _conn
+
+    con = _conn()
+    try:
+        cols = [r[1] for r in con.execute("PRAGMA table_info(host_groups)")]
+        if "user_policy_ids" not in cols:
+            con.execute("ALTER TABLE host_groups ADD COLUMN user_policy_ids TEXT NOT NULL DEFAULT ''")
+            con.commit()
+    except Exception:
+        pass
+
+
 def create_app() -> FastAPI:
     _pkg = package_dir()
     configure_settings(health_fn=_db_check, app_name=get_display_name(_pkg))
@@ -48,6 +67,7 @@ def create_app() -> FastAPI:
 
     _configure_db(db_path())
     create_all_registered_tables()
+    _migrate_host_groups_user_policy_ids()
 
     settings_init(work_dir())
 

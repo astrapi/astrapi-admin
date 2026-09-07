@@ -3,6 +3,8 @@
 strukturierter Dialog statt generischem crud_blueprint (analog zu
 modules/policies/ui/__init__.py), weil Nutzer-Eintraege ein eigenes
 Listen-Widget brauchen, kein simples Formularfeld-Set."""
+import json
+import re
 import uuid
 
 from astrapi_core.ui.controls import Col, ContentTable
@@ -91,6 +93,72 @@ def user_policies_edit(policy_id: str, request: Request):
     if policy is None:
         return HTMLResponse("", status_code=404)
     policy = {**policy, "id": policy_id}
+    return render(request, f"{KEY}/dialogs/edit/modal.html", dict(policy=policy, error=None))
+
+
+def _slug(text: str) -> str:
+    """Dateiname-tauglicher Kurzname fuer den Export-Download, analog zu
+    policies/ui.py::_slug()."""
+    text = re.sub(r"[^a-zA-Z0-9_-]+", "-", (text or "").strip().lower()).strip("-")
+    return text or "user-policy"
+
+
+@router.get(f"/ui/{KEY}/{{policy_id}}/export")
+def user_policies_export(policy_id: str):
+    """Reiner Download-Link (kein HTMX) -- liefert das rohe, gespeicherte
+    Nutzer-Policy-JSON. SSH-Keys sind öffentliche Schlüssel, keine
+    Geheimnisse -- anders als bei policies/ui.py::policies_export() ist
+    hier keine Secret-Ausklammerung nötig. Keine Host-/Gruppen-Zuweisung
+    enthalten, die lebt getrennt bei hosts/host_groups."""
+    policy = engine.get_user_policy(policy_id)
+    if policy is None:
+        return Response(status_code=404)
+    filename = f"user-policy-{_slug(policy.get('name') or policy_id)}.json"
+    return Response(
+        content=json.dumps(policy, indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(f"/ui/{KEY}/import", response_class=HTMLResponse)
+def user_policies_import_modal(request: Request):
+    return render(request, f"{KEY}/dialogs/import/modal.html", dict(error=None, raw=None))
+
+
+@router.post(f"/ui/{KEY}/import-preview", response_class=HTMLResponse)
+async def user_policies_import_preview(request: Request):
+    """Legt NICHTS an -- parst nur das eingefügte JSON und übergibt es an
+    den bestehenden Edit-Dialog (id=None -> is_new, geht beim Absenden über
+    den normalen user_policies_create()-Pfad), analog zu
+    policies/ui.py::policies_import_preview()."""
+    form = await request.form()
+    raw = (form.get("import_json") or "").strip()
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return render(
+            request,
+            f"{KEY}/dialogs/import/modal.html",
+            dict(error="Kein gültiges JSON.", raw=raw),
+            status_code=422,
+        )
+    if not isinstance(data, dict) or not (data.get("name") or "").strip():
+        return render(
+            request,
+            f"{KEY}/dialogs/import/modal.html",
+            dict(error="JSON enthält kein (nicht-leeres) 'name'-Feld.", raw=raw),
+            status_code=422,
+        )
+
+    entries = data.get("entries")
+    policy = {
+        "id": None,
+        "name": data.get("name", ""),
+        "description": data.get("description", ""),
+        "enabled": bool(data.get("enabled", True)),
+        "entries": entries if isinstance(entries, list) else [],
+    }
     return render(request, f"{KEY}/dialogs/edit/modal.html", dict(policy=policy, error=None))
 
 

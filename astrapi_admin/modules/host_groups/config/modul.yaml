@@ -1,2 +1,7 @@
 label:       Gruppen
 nav_group:   Admin
+
+card_actions:
+  - title: Als JSON exportieren
+    icon: download
+    href: /ui/host_groups/{item}/export

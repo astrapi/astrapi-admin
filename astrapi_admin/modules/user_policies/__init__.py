@@ -29,6 +29,13 @@ module = load_modul(
     ui_header=Header(
         [
             Header.action_button(
+                "Importieren",
+                hx_get=f"/ui/{_KEY}/import",
+                hx_target="body",
+                style="ghost",
+                icon="arrow-up",
+            ),
+            Header.action_button(
                 "Neue Nutzer-Policy",
                 hx_get=f"/ui/{_KEY}/new",
                 hx_target="body",

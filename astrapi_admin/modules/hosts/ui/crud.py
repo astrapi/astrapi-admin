@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse
 from astrapi_admin.modules.hosts import mirror_client
 from astrapi_admin.modules.hosts import mirror_repos as mirror_repos_mod
 from astrapi_admin.modules.policies.engine import group_policy_ids
+from astrapi_admin.modules.user_policies.engine import group_user_policy_ids
 
 KEY = "hosts"
 _DIR = Path(__file__).parent.parent
@@ -32,6 +33,7 @@ def _resolve_fields(fields: list, item: dict | None = None) -> list:
     locked_by_field = {
         "mirror_repos": mirror_repos_mod.group_mirror_repos(item),
         "policy_ids": group_policy_ids(item),
+        "user_policy_ids": group_user_policy_ids(item),
     }
     for f in resolved:
         locked = locked_by_field.get(f.get("name"))
