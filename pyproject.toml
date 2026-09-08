@@ -17,6 +17,12 @@ dependencies = [
     "astrapi-core>=26.9.4",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
 [project.scripts]
 astrapi-admin = "astrapi_admin._cli:main"
 
