@@ -14,7 +14,7 @@ dependencies = [
     "apispec==6.10.0",
     "webauthn==3.0.0",
     "httpx==0.28.1",
-    "astrapi-core>=26.9.4",
+    "astrapi-core>=26.9.5",
 ]
 
 [project.optional-dependencies]
