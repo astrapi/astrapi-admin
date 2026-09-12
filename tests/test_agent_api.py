@@ -86,6 +86,27 @@ def test_get_policy_liefert_poll_interval_minutes_default(client):
     assert r.json()["poll_interval_minutes"] == 15
 
 
+def test_get_policy_ohne_gesetzte_zeitzone_fehlt_das_feld(client):
+    """T-321-ADMIN: kein Feld, wenn nichts konfiguriert ist -- der Agent
+    soll die Zeitzone dann unangetastet lassen, nicht auf "" setzen."""
+    _host_id, token = _create_host()
+
+    r = client.get("/api/agent/policy", headers=_auth(token))
+
+    assert "timezone" not in r.json()
+
+
+def test_get_policy_liefert_gesetzte_zeitzone(client):
+    from astrapi_core.ui import settings_registry
+
+    settings_registry.set_module("hosts", "agent_timezone", "Europe/Berlin")
+    _host_id, token = _create_host()
+
+    r = client.get("/api/agent/policy", headers=_auth(token))
+
+    assert r.json()["timezone"] == "Europe/Berlin"
+
+
 def test_post_report_uebernimmt_reboot_required(client):
     """T-298-ADMIN."""
     from astrapi_admin.modules.hosts.ui.crud import store as hosts_store

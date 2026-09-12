@@ -117,7 +117,7 @@ def pair(payload: PairRequest):
 
 @router.get("/policy")
 def get_policy(host_data=Depends(require_host)):
-    from astrapi_admin.modules.hosts.agent_settings import poll_interval_minutes
+    from astrapi_admin.modules.hosts.agent_settings import poll_interval_minutes, timezone
     from astrapi_admin.modules.hosts.mirror_repos import resolve_mirror_config_files
     from astrapi_admin.modules.policies.engine import resolve_policy_for_host
     from astrapi_admin.modules.user_policies.engine import resolve_users_for_host
@@ -132,6 +132,12 @@ def get_policy(host_data=Depends(require_host)):
     # E-011: Poll-Intervall server-seitig einstellbar (Einstellungen >
     # Agent) -- der Agent gleicht seinen eigenen systemd-Timer danach ab.
     result["poll_interval_minutes"] = poll_interval_minutes()
+    # T-321-ADMIN: globale Zeitzone, analog zum Poll-Intervall -- Feld
+    # fehlt ganz, wenn nichts konfiguriert ist (Agent laesst die
+    # Zeitzone dann unangetastet statt sie auf "" zu setzen).
+    tz = timezone()
+    if tz:
+        result["timezone"] = tz
     # E-012: Nutzer-Policies separat aufgeloest (eigenes Modul, kein
     # Gruppen-Erbe), Konflikte in dieselbe Liste eingehaengt.
     user_result = resolve_users_for_host(host)

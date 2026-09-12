@@ -40,3 +40,27 @@ def test_poll_interval_minutes_faellt_bei_ungueltigem_wert_auf_default_zurueck(m
     _patch_get_module(monkeypatch, "kaputt")
 
     assert agent_settings.poll_interval_minutes() == 15
+
+
+def test_timezone_default_ist_leer(monkeypatch):
+    _patch_get_module(monkeypatch, "")
+
+    assert agent_settings.timezone() == ""
+
+
+def test_timezone_liefert_gesetzten_wert(monkeypatch):
+    _patch_get_module(monkeypatch, "Europe/Berlin")
+
+    assert agent_settings.timezone() == "Europe/Berlin"
+
+
+def test_timezone_trimmt_whitespace(monkeypatch):
+    _patch_get_module(monkeypatch, "  Europe/Berlin  ")
+
+    assert agent_settings.timezone() == "Europe/Berlin"
+
+
+def test_timezone_none_wird_zu_leerem_string(monkeypatch):
+    _patch_get_module(monkeypatch, None)
+
+    assert agent_settings.timezone() == ""

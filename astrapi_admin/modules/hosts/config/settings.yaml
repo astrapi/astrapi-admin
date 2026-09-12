@@ -49,6 +49,20 @@ fields:
       kein Sofort-Push. Braucht mindestens astrapi-admin-agent v26.8.10
       (ältere Agenten ignorieren das Feld einfach).
 
+  - key: agent_timezone
+    label: Zeitzone
+    type: text
+    mono: true
+    default: ""
+    description: >
+      IANA-Zeitzonenname (z.B. Europe/Berlin), der auf allen gekoppelten
+      Hosts gesetzt wird (timedatectl set-timezone). Gilt für die ganze
+      Flotte, kein Feld pro Host/Gruppe. Leer lassen, um die Zeitzone
+      unangetastet zu lassen -- wirkt erst beim nächsten Poll-Zyklus des
+      jeweiligen Agenten, kein Sofort-Push. Braucht mindestens
+      astrapi-admin-agent v26.9.7 (ältere Agenten ignorieren das Feld
+      einfach).
+
   - type: section
     label: Nutzer-Anzeige
     cols: 1
