@@ -54,6 +54,7 @@ register_source(_KEY, "Hosts")
 
 from astrapi_admin.modules.hosts import mirror_client  # noqa: E402
 from astrapi_admin.modules.hosts.ui import pairing as _pairing  # noqa: E402,F401 – registriert Routen auf ui_router
+from astrapi_admin.modules.hosts.ui import trigger as _trigger  # noqa: E402,F401 – registriert Routen auf ui_router
 from astrapi_admin.modules.hosts.ui import updates as _updates  # noqa: E402,F401 – registriert Routen auf ui_router
 from astrapi_admin.modules.hosts.ui import user_inventory as _user_inventory  # noqa: E402,F401 – registriert Routen auf ui_router
 from astrapi_admin.modules.hosts.ui.crud import api_router as router  # noqa: E402
@@ -105,8 +106,9 @@ module = load_modul(
             # dieser Reihenfolge). Der zuletzt geschriebene Wert
             # entspricht damit dem Abschluss des letzten Laufs.
             Col.text("last_seen", "Letzter Lauf", css="col-date"),
-            # next_run_display kommt aus dem Agenten selbst (systemd
-            # list-timers, inkl. Jitter) statt einer server-seitigen
+            # next_run_display kommt aus dem Agenten selbst (jetzt +
+            # Poll-Intervall, siehe astrapi_admin_agent.timer_config.
+            # next_run_at() bzw. T-318-ADMIN) statt einer server-seitigen
             # last_seen+Intervall-Schaetzung -- siehe hosts/ui/crud.py::
             # _next_run_at(). Braucht Agent >= v26.9.2, aeltere Agenten
             # liefern "unbekannt".

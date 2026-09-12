@@ -5,6 +5,11 @@ nav_default: true
 card_actions:
   - type: reconnect
     url: /ui/hosts/{item}/reconnect
+  - title: Jetzt pollen
+    icon: play
+    hx_get: /ui/hosts/{item}/trigger-poll
+    hx_target: body
+    hx_swap: beforeend
   - title: Update anstoßen
     icon: refresh
     hx_get: /ui/hosts/{item}/trigger-update
