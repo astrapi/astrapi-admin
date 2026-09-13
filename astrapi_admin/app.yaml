@@ -32,3 +32,9 @@ auth:
   password_fallback: false
   exempt_prefixes:
     - /api/agent
+
+# Geteilte Daten (mehrere Admins verwalten dieselben Hosts) -- eine
+# gemeinsame Kategorienliste statt einer privaten pro Nutzer, siehe
+# astrapi_core/system/categories_scope.py.
+categories:
+  scope: shared
