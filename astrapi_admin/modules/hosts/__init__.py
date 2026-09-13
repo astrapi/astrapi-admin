@@ -30,6 +30,7 @@ _DDL = """
         user_policy_ids    TEXT    NOT NULL DEFAULT '',
         user_inventory     TEXT    NOT NULL DEFAULT '',
         user_inventory_checked_at TEXT NOT NULL DEFAULT '',
+        category_id        INTEGER NOT NULL DEFAULT 0,
         enabled            INTEGER NOT NULL DEFAULT 1
     )"""
 
@@ -57,6 +58,7 @@ from astrapi_admin.modules.hosts.ui import pairing as _pairing  # noqa: E402,F40
 from astrapi_admin.modules.hosts.ui import trigger as _trigger  # noqa: E402,F401 – registriert Routen auf ui_router
 from astrapi_admin.modules.hosts.ui import updates as _updates  # noqa: E402,F401 – registriert Routen auf ui_router
 from astrapi_admin.modules.hosts.ui import user_inventory as _user_inventory  # noqa: E402,F401 – registriert Routen auf ui_router
+from astrapi_admin.modules.hosts.ui.crud import category_options  # noqa: E402
 from astrapi_admin.modules.hosts.ui.crud import api_router as router  # noqa: E402
 from astrapi_admin.modules.hosts.ui.crud import router as ui_router  # noqa: E402
 
@@ -75,6 +77,9 @@ module = load_modul(
     router,
     ui_router,
     ui_header=Header([
+        Header.filter_select(
+            "category_id", options_fn=category_options, all_label="Alle Kategorien"
+        ),
         Header.action_button(
             "Host koppeln",
             hx_get=f"/ui/{_KEY}/pair",
@@ -97,6 +102,7 @@ module = load_modul(
         # post_report()), nicht erst seit dieser Aenderung.
         columns=[
             Col.text("os_type", "OS", css="col-info", sortable=False),
+            Col.category("category_name", "Kategorie", color_key="category_color", sortable=True),
             Col.dot_text("updates_available", "Updates", category_key="updates_category", css="col-info"),
             Col.text("proxmox_vmid", "Proxmox", css="col-info", sortable=False),
             # "Letzter Lauf" statt "Zuletzt gesehen": last_seen wird

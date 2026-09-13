@@ -98,6 +98,12 @@ def _resolve_labels(item_id: str, item: dict) -> dict:
     item["os_type"] = _format_os_type(item.get("os_type"))
     item["next_run_display"] = _next_run_at(item.get("last_report"))
 
+    from astrapi_core.modules.categories.ui.crud import store as categories_store
+
+    category = categories_store.get(str(item.get("category_id") or "")) or {}
+    item["category_name"] = category.get("name") or ""
+    item["category_color"] = category.get("color") or ""
+
     return item
 
 
@@ -243,6 +249,14 @@ def get_log_by_id(item_id: str, log_id: str, request: Request):
     return render(request, "partials/dialogs/log_content.html", {"lines": lines, "date": log_id})
 
 
+def category_options() -> list[dict]:
+    """Fuer Header.filter_select() (Dropdown-Anzeige) UND filters= (die
+    eigentliche Filterlogik in resolve_filters_for_request())."""
+    from astrapi_core.modules.categories.ui.crud import categories_for_select
+
+    return categories_for_select()
+
+
 router = make_crud_router(
     store,
     KEY,
@@ -253,4 +267,12 @@ router = make_crud_router(
     has_toggle=True,
     resolve_fields_fn=_resolve_fields,
     list_item_transform=_resolve_labels,
+    filters=[
+        {
+            "param": "category_id",
+            "label": "Kategorie",
+            "all_label": "Alle Kategorien",
+            "options_fn": category_options,
+        },
+    ],
 )
