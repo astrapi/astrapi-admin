@@ -26,6 +26,7 @@ disabled_modules:
 # entfaellt bewusst.
 auth:
   enabled: true
+  multi_user: true
   rp_id: admin.simpsons.lan
   rp_name: astrapi-admin
   password_fallback: false
