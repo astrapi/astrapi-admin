@@ -93,6 +93,25 @@ def test_fetch_sources_content_liefert_text(monkeypatch):
     assert mirror_client.fetch_sources_content("caddy") == "Types: deb\n"
 
 
+def test_fetch_sources_content_ruft_korrekten_pfad_ohne_files_praefix_auf(monkeypatch):
+    """Regressionstest: astrapi-mirror liefert Dateien seit 2026-09 direkt
+    unter der Wurzel (/debian/...), nicht mehr unter /files/debian/... --
+    ein zurückgebliebenes /files-Präfix hier würde jeden Abruf mit 404
+    scheitern lassen (fetch_sources_content() faengt das als None ab,
+    ohne dass der Aufrufer den Grund sieht)."""
+    _set_base_url("https://mirror.simpsons.lan")
+    called_urls = []
+    monkeypatch.setattr(
+        mirror_client.httpx,
+        "get",
+        lambda url, **kw: called_urls.append(url) or _FakeResponse(text="Types: deb\n"),
+    )
+
+    mirror_client.fetch_sources_content("caddy")
+
+    assert called_urls == ["https://mirror.simpsons.lan/debian/caddy/caddy.sources"]
+
+
 def test_fetch_sources_content_bei_fehlendem_repo_liefert_none(monkeypatch):
     _set_base_url("https://mirror.simpsons.lan")
     monkeypatch.setattr(

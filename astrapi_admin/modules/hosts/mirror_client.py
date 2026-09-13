@@ -2,11 +2,17 @@
 """HTTP-Client gegen astrapi-mirror -- Grundlage fuer die host-bezogene
 Mirror-Quellen-Auswahl (E-005): astrapi-mirror liefert unter `/api/debian`
 bereits die vollstaendige Repo-Liste und unter
-`/files/debian/{slug}/{slug}.sources` eine fertig gerenderte DEB822-Datei
+`/debian/{slug}/{slug}.sources` eine fertig gerenderte DEB822-Datei
 je Repo -- kein neuer Code in astrapi-mirror noetig, nur ein duenner
 Client hier. Beide Aufrufe liefern bewusst einen "leeren"/None-Fallwert
 statt eine Exception zu werfen -- ein kurz nicht erreichbarer Mirror darf
 weder den Host-Dialog noch den Agent-Policy-Abruf zum Absturz bringen.
+
+Pfad-Praefix "/files" 2026-09 aus astrapi-mirrors URL-Struktur entfernt
+(Dateien liegen seither direkt unter der Wurzel, z.B. /debian/..., nicht
+mehr /files/debian/...) -- hier nachgezogen, sonst schlaegt jeder Abruf
+mit 404 fehl (landet dann still als "conflict" statt klarem Fehler, siehe
+fetch_sources_content()).
 
 WICHTIG (echt gegen den Produktivmirror verifiziert): httpx prueft
 Zertifikate per Default gegen das von certifi mitgelieferte Bundle, NICHT
@@ -56,7 +62,7 @@ def fetch_sources_content(slug: str) -> str | None:
         return None
     try:
         r = httpx.get(
-            f"{base}/files/debian/{slug}/{slug}.sources",
+            f"{base}/debian/{slug}/{slug}.sources",
             timeout=_TIMEOUT,
             verify=_SSL_CONTEXT,
             follow_redirects=True,
